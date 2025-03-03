@@ -36,8 +36,16 @@ Yet Another Kernel
 ```
 sudo apt-get update && sudo apt-get install \
 	build-essential \
+	grub-common \
+	grub-pc-bin \
 	nasm \
-	qemu-system-x86
+	qemu-system-x86 \
+	xorriso
 ```
 [The Rust toolchain installer](https://rustup.rs)  
+
+## target-triplet
+[Rust Programming Language — Learn - rustc book — Platform Support — x86_64-unknown-none](https://doc.rust-lang.org/rustc/platform-support/x86_64-unknown-none.html)  
+[GitHub — maestro-os — maestro/kernel/arch/x86/x86.json](https://github.com/maestro-os/maestro/blob/master/kernel/arch/x86/x86.json)  
+[GitLab — redox-os — bootloader-coreboot/targets/x86-unknown-none.json](https://gitlab.redox-os.org/redox-os/bootloader-coreboot/-/blob/master/targets/x86-unknown-none.json)  
 
