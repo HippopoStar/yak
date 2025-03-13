@@ -54,7 +54,7 @@ fclean: clean
 re: fclean all
 
 run: $(NAME)
-	qemu-system-i386 -display curses -cdrom $(NAME)
+	qemu-system-i386 -display curses -cdrom $<
 
 .PHONY: all clean fclean re run
 

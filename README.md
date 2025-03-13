@@ -10,6 +10,8 @@ Yet Another Kernel
 
 [Redox](https://gitlab.redox-os.org/redox-os/kernel)  
 [Maestro](https://github.com/maestro-os/maestro)  
+[vcombey — Turbofish](https://github.com/sclolus/Turbofish)  
+[endcerro — KFS_N](https://github.com/endcerro/KFS_N)  
 
 [libasm](https://cdn.intra.42.fr/pdf/pdf/134392/en.subject.pdf) (Assembly yourself! — ~49h — [🎞](https://cdn.intra.42.fr/video/video/213/low_d_2015-02-02_COURS_42_-_Introduction_a_l_asm_1.mp4))  
 [ft\_linux](https://cdn.intra.42.fr/pdf/pdf/129297/en.subject.pdf) (how\_to\_train\_your\_kernel — ~49h — [🎞](https://cdn.intra.42.fr/video/video/511/low_d_vidlol1.mp4))  
@@ -48,4 +50,9 @@ sudo apt-get update && sudo apt-get install \
 [Rust Programming Language — Learn - rustc book — Platform Support — x86_64-unknown-none](https://doc.rust-lang.org/rustc/platform-support/x86_64-unknown-none.html)  
 [GitHub — maestro-os — maestro/kernel/arch/x86/x86.json](https://github.com/maestro-os/maestro/blob/master/kernel/arch/x86/x86.json)  
 [GitLab — redox-os — bootloader-coreboot/targets/x86-unknown-none.json](https://gitlab.redox-os.org/redox-os/bootloader-coreboot/-/blob/master/targets/x86-unknown-none.json)  
+
+# x86 assembly
+[Wikipedia — i386 #Architecture](https://en.wikipedia.org/wiki/I386#Architecture)  
+[Wikipedia — x86 assembly language #"Hello_world!"_program_for_Linux_in_NASM_style_assembly](https://en.wikipedia.org/wiki/X86_assembly_language#"Hello_world!"_program_for_Linux_in_NASM_style_assembly)  
+[The Linux Kernel Archive — git — arch/x86/entry/syscalls/syscall_32.tbl](https://web.git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/arch/x86/entry/syscalls/syscall_32.tbl)  
 
