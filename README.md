@@ -51,8 +51,17 @@ sudo apt-get update && sudo apt-get install \
 [GitHub — maestro-os — maestro/kernel/arch/x86/x86.json](https://github.com/maestro-os/maestro/blob/master/kernel/arch/x86/x86.json)  
 [GitLab — redox-os — bootloader-coreboot/targets/x86-unknown-none.json](https://gitlab.redox-os.org/redox-os/bootloader-coreboot/-/blob/master/targets/x86-unknown-none.json)  
 
-# x86 assembly
+## x86 assembly
 [Wikipedia — i386 #Architecture](https://en.wikipedia.org/wiki/I386#Architecture)  
 [Wikipedia — x86 assembly language #"Hello_world!"_program_for_Linux_in_NASM_style_assembly](https://en.wikipedia.org/wiki/X86_assembly_language#"Hello_world!"_program_for_Linux_in_NASM_style_assembly)  
-[The Linux Kernel Archive — git — arch/x86/entry/syscalls/syscall_32.tbl](https://web.git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/arch/x86/entry/syscalls/syscall_32.tbl)  
+
+### The Linux Kernel Archive
+**pub/scm/linux — kernel/git/torvalds/linux.git**  
+[sys_write — scripts/syscall.tbl](https://web.git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/scripts/syscall.tbl#n83)  
+[sys_write — arch/x86/entry/syscalls/syscall_32.tbl](https://web.git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/arch/x86/entry/syscalls/syscall_32.tbl)  
+[sys_write — include/linux/syscalls.h](https://web.git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/include/linux/syscalls.h#n476)  
+[sys_write — tools/include/nolibc/sys.h](https://web.git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/tools/include/nolibc/sys.h#n1246)  
+[__NR_write — tools/include/uapi/asm-generic/unistd.h](https://web.git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/tools/include/uapi/asm-generic/unistd.h#n174)  
+[__NR_write — include/uapi/asm-generic/unistd.h](https://web.git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/include/uapi/asm-generic/unistd.h#n174)  
+[my_syscall3 — tools/include/nolibc/arch-i386.h](https://web.git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/tools/include/nolibc/arch-i386.h#n78)  
 
