@@ -1,5 +1,5 @@
 
-ENTRY(start)
+ENTRY(_start)
 OUTPUT_ARCH(i386)
 OUTPUT_FORMAT(elf32-i386)
 
@@ -15,6 +15,11 @@ SECTIONS {
 	.text :
 	{
 		*(.text)
+	}
+
+	.data :
+	{
+		*(.data)
 	}
 }
 

@@ -45,6 +45,13 @@ sudo apt-get update && sudo apt-get install \
 	xorriso
 ```
 [The Rust toolchain installer](https://rustup.rs)  
+```
+# https://rust-lang.github.io/rustup/concepts/channels.html#working-with-nightly-rust
+rustup toolchain install nightly
+
+# https://doc.rust-lang.org/cargo/reference/unstable.html#build-std
+rustup component add rust-src --toolchain nightly
+```
 
 ## target-triplet
 [Rust Programming Language — Learn - rustc book — Platform Support — x86_64-unknown-none](https://doc.rust-lang.org/rustc/platform-support/x86_64-unknown-none.html)  
