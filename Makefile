@@ -32,7 +32,7 @@ $(NAME): $(KERNEL)
 	grub-mkrescue -o $@ $(GRUB_MKRESCUE_OPT) $(ROOTFS_DIR)
 
 $(KERNEL): $(LINKER_SCRIPT) $(LIBBOOT)
-	ld -o $@ -n -T $< -L./asm --whole-archive -lboot --no-whole-archive
+	ld -o $@ --cref --fatal-warnings -n -T $< -L./asm --whole-archive -lboot --no-whole-archive
 
 $(LIBBOOT):
 	@make -C ./asm all

@@ -30,7 +30,7 @@ ASM_OBJ = $(addprefix $(ASM_OBJ_DIR)/,$(ASM_OBJ_NAME))
 all: $(NAME)
 
 $(NAME): $(ASM_OBJ)
-	ar rc $(AR_OPT) $@ $^
+	ar rc $@ $^
 	ranlib $@
 
 $(ASM_OBJ_DIR)/%.o: $(ASM_SRC_DIR)/%.s | $(ASM_OBJ_DIR)
