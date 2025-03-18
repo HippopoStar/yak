@@ -1,6 +1,11 @@
 
 ARCH ?= x86
 
+# From GNU Make Manual:
+# > trailing space characters are not stripped from variable values
+# debug | release
+BUILD_PROFILE = release
+
 NAME = yak-$(ARCH).iso
 
 
@@ -10,11 +15,18 @@ ifeq ($(ARCH), x86)
 	QEMU_BIN = qemu-system-i386
 endif
 
+ifeq ($(BUILD_PROFILE), release)
+	CARGO_BUILD_OPT = --release
+else
+	CARGO_BUILD_OPT =
+endif
+
+
 
 LIBBOOT_DIR = ./asm
 LIBBOOT = $(LIBBOOT_DIR)/libboot.a
 
-LIBYAK_DIR = ./rust/target/$(ARCH)-unknown-none/release
+LIBYAK_DIR = ./rust/target/$(ARCH)-unknown-none/$(BUILD_PROFILE)
 LIBYAK = $(LIBYAK_DIR)/libyak.a
 
 LINKER_SCRIPT = ./arch/$(ARCH)/linker.ld
@@ -37,7 +49,7 @@ $(LIBBOOT):
 	@make -C ./asm all
 
 $(LIBYAK):
-	@cargo -Z unstable-options -C ./rust build --release
+	@cargo -Z unstable-options -C ./rust build $(CARGO_BUILD_OPT)
 
 clean:
 	@make -C ./asm fclean
