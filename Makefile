@@ -11,18 +11,17 @@ ifeq ($(ARCH), x86)
 endif
 
 
+LIBBOOT_DIR = ./asm
+LIBBOOT = $(LIBBOOT_DIR)/libboot.a
 
-LIBBOOT = ./asm/libboot.a
+LIBYAK_DIR = ./rust/target/$(ARCH)-unknown-none/release
+LIBYAK = $(LIBYAK_DIR)/libyak.a
 
 LINKER_SCRIPT = ./arch/$(ARCH)/linker.ld
 
 ROOTFS_DIR = ./rootfs
 
-KERNEL_DIR = $(ROOTFS_DIR)/boot
-
-KERNEL_NAME = kernel.bin
-
-KERNEL = $(KERNEL_DIR)/$(KERNEL_NAME)
+KERNEL = $(ROOTFS_DIR)/boot/kernel.bin
 
 
 
@@ -31,14 +30,18 @@ all: $(NAME)
 $(NAME): $(KERNEL)
 	grub-mkrescue -o $@ $(GRUB_MKRESCUE_OPT) $(ROOTFS_DIR)
 
-$(KERNEL): $(LINKER_SCRIPT) $(LIBBOOT)
-	ld -o $@ --cref --fatal-warnings -n -T $< -L./asm --whole-archive -lboot --no-whole-archive
+$(KERNEL): $(LINKER_SCRIPT) $(LIBBOOT) $(LIBYAK)
+	ld -o $@ --cref --fatal-warnings -n -T $< -L$(LIBBOOT_DIR) -L$(LIBYAK_DIR) --whole-archive -lboot --no-whole-archive -lyak
 
 $(LIBBOOT):
 	@make -C ./asm all
 
+$(LIBYAK):
+	@cargo -Z unstable-options -C ./rust build --release
+
 clean:
 	@make -C ./asm fclean
+	@cargo -Z unstable-options -C ./rust clean
 	rm -f $(KERNEL)
 
 fclean: clean

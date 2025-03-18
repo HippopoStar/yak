@@ -1,0 +1,7 @@
+
+[build]
+target = "arch/x86/x86-unknown-none.json"
+
+[unstable]
+build-std = ["core"]
+
