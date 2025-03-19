@@ -42,20 +42,20 @@ all: $(NAME)
 $(NAME): $(KERNEL)
 	grub-mkrescue -o $@ $(GRUB_MKRESCUE_OPT) $(ROOTFS_DIR)
 
-$(KERNEL): $(LINKER_SCRIPT) $(LIBBOOT) $(LIBYAK)
+$(KERNEL): $(LINKER_SCRIPT) .keepme $(LIBBOOT) $(LIBYAK)
 	ld -o $@ --cref --fatal-warnings -n -T $< -L$(LIBBOOT_DIR) -L$(LIBYAK_DIR) --whole-archive -lboot --no-whole-archive -lyak
 
-$(LIBBOOT): libboot
+.keepme: libboot libyak
+
+#$(LIBBOOT): libboot
 
 libboot:
 	@make -C ./asm all
-	# Dependency updated? -> run 'make' again
 
-$(LIBYAK): libyak
+#$(LIBYAK): libyak
 
 libyak:
 	@cargo -Z unstable-options -C ./rust build $(CARGO_BUILD_OPT) --target arch/$(ARCH)/$(ARCH)-unknown-none.json
-	# Dependency updated? -> run 'make' again
 
 clean:
 	@make -C ./asm fclean
