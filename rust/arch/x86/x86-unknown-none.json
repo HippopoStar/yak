@@ -9,8 +9,9 @@
 	"target-c-int-width": "32",
 	"linker-flavor": "ld",
 	"pre-link-args": {
-		"ld": ["-m32", "-nostdlib", "-static"]
+		"ld": ["-m", "elf_i386", "-nostdlib", "-static"]
 	},
-	"disable-redzone": true,
-	"features": "-mmx,-sse,+soft-float"
+	"features": "-mmx,-sse,+soft-float",
+	"panic-strategy": "abort",
+	"disable-redzone": true
 }
