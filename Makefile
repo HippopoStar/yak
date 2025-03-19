@@ -42,17 +42,17 @@ all: $(NAME)
 $(NAME): $(KERNEL)
 	grub-mkrescue -o $@ $(GRUB_MKRESCUE_OPT) $(ROOTFS_DIR)
 
-$(KERNEL): $(LINKER_SCRIPT) .keepme $(LIBBOOT) $(LIBYAK)
+$(KERNEL): $(LINKER_SCRIPT) $(LIBBOOT) $(LIBYAK)
 	ld -o $@ --cref --fatal-warnings -n -T $< -L$(LIBBOOT_DIR) -L$(LIBYAK_DIR) --whole-archive -lboot --no-whole-archive -lyak
 
-.keepme: libboot libyak
+libraries: libboot libyak
 
-#$(LIBBOOT): libboot
+$(LIBBOOT): libraries
 
 libboot:
 	@make -C ./asm all
 
-#$(LIBYAK): libyak
+$(LIBYAK): libraries
 
 libyak:
 	@cargo -Z unstable-options -C ./rust build $(CARGO_BUILD_OPT) --target arch/$(ARCH)/$(ARCH)-unknown-none.json
@@ -71,5 +71,5 @@ run: $(NAME)
 	# Quit qemu: Alt+2, then type "q" and press Enter
 	$(QEMU_BIN) -display curses -cdrom $<
 
-.PHONY: all clean fclean re libboot libyak run
+.PHONY: all clean fclean re libraries libboot libyak run
 
