@@ -1,7 +1,7 @@
 
 ARCH ?= x86
 
-# From GNU Make Manual:
+# GNU Make Manual:
 # > trailing space characters are not stripped from variable values
 # debug | release
 BUILD_PROFILE = release
@@ -53,7 +53,11 @@ $(LIBYAK): FORCE
 
 # Workaround
 # FORCE has to be a nonexistent file
-FORCE:
+# GNU Make Manual:
+# - 4.7 Rules without Recipes or Prerequisites
+# - 5.9 Using Empty Recipes
+# Another possible workaround would imply Double-Colon Rules
+FORCE: ;
 
 clean:
 	@make -C ./asm fclean
