@@ -45,17 +45,15 @@ $(NAME): $(KERNEL)
 $(KERNEL): $(LINKER_SCRIPT) $(LIBBOOT) $(LIBYAK)
 	ld -o $@ --cref --fatal-warnings -n -T $< -L$(LIBBOOT_DIR) -L$(LIBYAK_DIR) --whole-archive -lboot --no-whole-archive -lyak
 
-libraries: libboot libyak
-
-$(LIBBOOT): libraries
-
-libboot:
+$(LIBBOOT): FORCE
 	@make -C ./asm all
 
-$(LIBYAK): libraries
-
-libyak:
+$(LIBYAK): FORCE
 	@cargo -Z unstable-options -C ./rust build $(CARGO_BUILD_OPT) --target arch/$(ARCH)/$(ARCH)-unknown-none.json
+
+# Workaround
+# FORCE has to be a nonexistent file
+FORCE:
 
 clean:
 	@make -C ./asm fclean
@@ -71,5 +69,5 @@ run: $(NAME)
 	# Quit qemu: Alt+2, then type "q" and press Enter
 	$(QEMU_BIN) -display curses -cdrom $<
 
-.PHONY: all clean fclean re libraries libboot libyak run
+.PHONY: all clean fclean re run
 
