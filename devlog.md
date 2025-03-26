@@ -35,6 +35,10 @@ _EOF
 
 ## Documentation & References
 
+```
+rustup doc --core
+```
+
 ### Uncategorized
 [The Embedded Rust Book — no\_std (#summary)](https://docs.rust-embedded.org/book/intro/no-std.html#summary)  
 [LLVM — Documentation — Reference — Intermediate Representation (#data-layout)](https://llvm.org/docs/LangRef.html#data-layout)  

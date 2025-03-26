@@ -1,6 +1,9 @@
 
 #![no_std]
 
+mod vga;
+
+use core::fmt::Write;
 use core::panic::PanicInfo;
 
 /// This function is called on panic.
@@ -24,6 +27,20 @@ pub extern "C" fn rust_main() {
 	// write `Hello World!` to the center of the VGA text buffer
 	let buffer_ptr = (0xb8000 + 1988) as *mut _;
 	unsafe { *buffer_ptr = hello_colored };
+
+	let str_42 = "
+        :::      ::::::::
+      :+:      :+:    :+:
+    +:+ +:+         +:+
+  +#+  +:+       +#+
++#+#+#+#+#+   +#+
+     #+#    #+#
+    ###   ########.fr";
+	let mut vga = vga::VGABuffer::new();
+	writeln!(&mut vga, "{}", &str_42).unwrap();
+	for i in 0..17 {
+		writeln!(vga, "Patatra {:02}", i).unwrap();
+	}
 
 	loop {}
 }

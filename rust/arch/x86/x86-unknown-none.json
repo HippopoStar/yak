@@ -7,10 +7,6 @@
 	"target-endian": "little",
 	"target-pointer-width": "32",
 	"target-c-int-width": "32",
-	"linker-flavor": "ld",
-	"pre-link-args": {
-		"ld": ["-m", "elf_i386", "-nostdlib", "-static"]
-	},
 	"features": "-mmx,-sse,+soft-float",
 	"panic-strategy": "abort",
 	"disable-redzone": true
