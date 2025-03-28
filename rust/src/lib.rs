@@ -3,12 +3,9 @@
 
 mod vga;
 
-use core::fmt::Write;
-use core::panic::PanicInfo;
-
 /// This function is called on panic.
 #[panic_handler]
-fn panic(_info: &PanicInfo) -> ! {
+fn panic(_info: &core::panic::PanicInfo) -> ! {
 	loop {}
 }
 
@@ -36,8 +33,8 @@ pub extern "C" fn rust_main() {
 +#+#+#+#+#+   +#+
      #+#    #+#
     ###   ########.fr";
-	let mut vga = vga::VGABuffer::new();
-	writeln!(&mut vga, "{}", &str_42).unwrap();
+	let vga: &mut dyn core::fmt::Write = &mut vga::VGA::new();
+	writeln!(vga, "{}", &str_42).unwrap();
 	for i in 0..17 {
 		writeln!(vga, "Patatra {:02}", i).unwrap();
 	}

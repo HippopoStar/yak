@@ -41,11 +41,11 @@ sudo apt-get update && sudo apt-get install \
 ```
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 ```
-[The rustup book — Concepts — Channels #working-with-nightly-rust](https://rust-lang.github.io/rustup/concepts/channels.html#working-with-nightly-rust)  
+[The rustup book — Concepts — Channels (#working-with-nightly-rust)](https://rust-lang.github.io/rustup/concepts/channels.html#working-with-nightly-rust)  
 ```
 rustup toolchain install nightly
 ```
-[The Cargo Book — Cargo Reference — Unstable Features #build-std](https://doc.rust-lang.org/cargo/reference/unstable.html#build-std)  
+[The Cargo Book — Cargo Reference — Unstable Features (#build-std)](https://doc.rust-lang.org/cargo/reference/unstable.html#build-std)  
 ```
 rustup component add rust-src --toolchain nightly
 ```
