@@ -3,28 +3,15 @@
 
 mod vga;
 
+use core::fmt::Write;
+
 /// This function is called on panic.
 #[panic_handler]
 fn panic(_info: &core::panic::PanicInfo) -> ! {
 	loop {}
 }
 
-#[no_mangle]
-pub extern "C" fn rust_main() {
-	// ATTENTION: we have a very small stack and no guard page
-
-	let hello = b"Hello World!";
-	let color_byte = 0x2f; // white foreground, green background
-
-	let mut hello_colored = [color_byte; 24];
-	for (i, char_byte) in hello.into_iter().enumerate() {
-		hello_colored[i*2] = *char_byte;
-	}
-
-	// write `Hello World!` to the center of the VGA text buffer
-	let buffer_ptr = (0xb8000 + 1988) as *mut _;
-	unsafe { *buffer_ptr = hello_colored };
-
+fn print_rainbow_42(vga: &mut vga::VGA) -> () {
 	let str_42 = "
         :::      ::::::::
       :+:      :+:    :+:
@@ -33,11 +20,23 @@ pub extern "C" fn rust_main() {
 +#+#+#+#+#+   +#+
      #+#    #+#
     ###   ########.fr";
-	let vga: &mut dyn core::fmt::Write = &mut vga::VGA::new();
-	writeln!(vga, "{}", &str_42).unwrap();
-	for i in 0..17 {
-		writeln!(vga, "Patatra {:02}", i).unwrap();
+
+	vga.set_color(vga::Color::Black);
+	for line in str_42.lines() {
+		writeln!(vga, "{}", line).unwrap();
+		vga.set_next_rainbow_color();
 	}
+}
+
+#[no_mangle]
+pub extern "C" fn rust_main() {
+	// ATTENTION: we have a very small stack and no guard page
+
+	let mut vga = vga::VGA::new();
+	print_rainbow_42(&mut vga);
+
+	let vga_writer: &mut dyn core::fmt::Write = &mut vga;
+	write!(vga_writer, "$> ").unwrap();
 
 	loop {}
 }

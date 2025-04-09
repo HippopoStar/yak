@@ -46,6 +46,23 @@ impl VGA {
 		}
 	}
 
+	pub fn set_color(&mut self, color: Color) -> () {
+		self.color = color;
+	}
+
+	pub fn set_next_rainbow_color(&mut self) -> () {
+		self.color = match self.color {
+			Color::Black => Color::White,
+			Color::White => Color::Red,
+			Color::Red => Color::Yellow,
+			Color::Yellow => Color::Green,
+			Color::Green => Color::Cyan,
+			Color::Cyan => Color::Blue,
+			Color::Blue => Color::Magenta,
+			Color::Magenta => Color::Black,
+		}
+	}
+
 	fn shift_upward(&mut self) -> () {
 		for i in 0..Self::HEIGHT - 1 {
 			for j in 0..Self::WIDTH {
@@ -69,8 +86,7 @@ impl VGA {
 	}
 
 	fn write_byte(&mut self, c: u8) -> () {
-		self.buff[self.cursor.line][self.cursor.column].0 = c;
-		self.buff[self.cursor.line][self.cursor.column].1 = self.color;
+		self.buff[self.cursor.line][self.cursor.column] = Cell(c, self.color);
 		self.cursor.column += 1;
 		if Self::WIDTH == self.cursor.column {
 			self.write_new_line();
