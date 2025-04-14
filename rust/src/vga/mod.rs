@@ -18,7 +18,7 @@ pub enum Color {
 struct Cell(u8, Color);
 
 impl Cell {
-	fn copy(dst: &mut Self, src: &Self) -> () {
+	fn volatile_copy(dst: &mut Self, src: &Self) -> () {
 		unsafe { (dst as *mut Self).write_volatile((src as *const Self).read_volatile()) };
 	}
 }
@@ -74,12 +74,14 @@ impl VGA {
 		while let Some(above) = it.next() {
 			if let Some(below) = it.peek() {
 				for column in 0..Self::WIDTH {
-					Cell::copy(&mut above[column], &below[column]);
+					Cell::volatile_copy(&mut above[column], &below[column]);
 				}
 			}
-		}
-		for column in 0..Self::WIDTH {
-			Cell::copy(&mut self.buff[Self::HEIGHT - 1][column], &Cell(b'\0', Color::Black));
+			else {
+				for column in 0..Self::WIDTH {
+					Cell::volatile_copy(&mut above[column], &Cell(b'\0', Color::Black));
+				}
+			}
 		}
 	}
 
@@ -92,7 +94,7 @@ impl VGA {
 	}
 
 	fn write_byte(&mut self, c: u8) -> () {
-		Cell::copy(&mut self.buff[self.cursor.line][self.cursor.column], &Cell(c, self.color));
+		Cell::volatile_copy(&mut self.buff[self.cursor.line][self.cursor.column], &Cell(c, self.color));
 		self.cursor.column += 1;
 		if Self::WIDTH == self.cursor.column {
 			self.write_new_line();
