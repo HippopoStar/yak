@@ -17,6 +17,12 @@ pub enum Color {
 #[repr(C)]
 struct Cell(u8, Color);
 
+impl Cell {
+	fn copy(dst: &mut Self, src: &Self) -> () {
+		unsafe { (dst as *mut Self).write_volatile((src as *const Self).read_volatile()) };
+	}
+}
+
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 struct Cursor {
 	line: usize,
@@ -64,16 +70,16 @@ impl VGA {
 	}
 
 	fn shift_upward(&mut self) -> () {
-		for i in 0..Self::HEIGHT - 1 {
-			for j in 0..Self::WIDTH {
-				self.buff[i][j] = self.buff[i+1][j];
-				// let mut above: &mut Cell = &mut self.buff[i][j];
-				// let below: &Cell = &self.buff[i + 1][j];
-				// unsafe { (above as *mut Cell).write_volatile((below as *const Cell).read_volatile()) };
+		let mut it = self.buff.iter_mut().peekable();
+		while let Some(above) = it.next() {
+			if let Some(below) = it.peek() {
+				for column in 0..Self::WIDTH {
+					Cell::copy(&mut above[column], &below[column]);
+				}
 			}
 		}
-		for j in 0..Self::WIDTH {
-			self.buff[Self::HEIGHT - 1][j] = Cell(0, Color::Black);
+		for column in 0..Self::WIDTH {
+			Cell::copy(&mut self.buff[Self::HEIGHT - 1][column], &Cell(b'\0', Color::Black));
 		}
 	}
 
@@ -86,7 +92,7 @@ impl VGA {
 	}
 
 	fn write_byte(&mut self, c: u8) -> () {
-		self.buff[self.cursor.line][self.cursor.column] = Cell(c, self.color);
+		Cell::copy(&mut self.buff[self.cursor.line][self.cursor.column], &Cell(c, self.color));
 		self.cursor.column += 1;
 		if Self::WIDTH == self.cursor.column {
 			self.write_new_line();
