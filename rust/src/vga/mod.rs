@@ -1,4 +1,14 @@
 
+pub mod screen;
+
+use self::screen::Screen;
+
+lazy_static::lazy_static! {
+	pub static ref _VGA: VGA = VGA::new();
+}
+
+// ===== Color =====
+
 #[allow(dead_code)]
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 #[repr(u8)]
@@ -13,112 +23,48 @@ pub enum Color {
 	White = 7,
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
-#[repr(C)]
-struct Cell(u8, Color);
-
-impl Cell {
-	fn volatile_copy(dst: &mut Self, src: &Self) -> () {
-		unsafe { (dst as *mut Self).write_volatile((src as *const Self).read_volatile()) };
-	}
-}
-
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
-struct Cursor {
-	line: usize,
-	column: usize,
-}
+// ===== VGA =====
 
 #[derive(Debug)]
 pub struct VGA {
-	cursor: Cursor,
-	color: Color,
-	buff: &'static mut [[Cell; Self::WIDTH]; Self::HEIGHT],
+	display: core::sync::atomic::AtomicUsize,
+	screens: [spin::Mutex<Screen>; 8],
 }
 
 impl VGA {
 	const ADDR: usize = 0x000b8000;
-	const HEIGHT: usize = 25;
-	const WIDTH: usize = 80;
 
 	pub fn new() -> Self {
 		Self {
-			cursor: Cursor {
-				line: 0,
-				column: 0,
-			},
-			color: Color::Black,
-			buff: unsafe { &mut (*(Self::ADDR as *mut _)) },
+			display: core::sync::atomic::AtomicUsize::new(1),
+			screens: core::array::from_fn(|i| spin::Mutex::new(Screen::new(Self::ADDR + i * Screen::SIZE))),
 		}
 	}
 
-	pub fn set_color(&mut self, color: Color) -> () {
-		self.color = color;
-	}
-
-	pub fn set_next_rainbow_color(&mut self) -> () {
-		self.color = match self.color {
-			Color::Black => Color::White,
-			Color::White => Color::Red,
-			Color::Red => Color::Yellow,
-			Color::Yellow => Color::Green,
-			Color::Green => Color::Cyan,
-			Color::Cyan => Color::Blue,
-			Color::Blue => Color::Magenta,
-			Color::Magenta => Color::Black,
+	pub fn get_screen(&self, index: usize) -> &spin::Mutex<Screen> {
+		if index == self.display.load(core::sync::atomic::Ordering::Relaxed) {
+			&self.screens[0]
+		}
+		else {
+			&self.screens[index]
 		}
 	}
 
-	fn shift_upward(&mut self) -> () {
-		let mut it = self.buff.iter_mut().peekable();
-		while let Some(above) = it.next() {
-			if let Some(below) = it.peek() {
-				for column in 0..Self::WIDTH {
-					Cell::volatile_copy(&mut above[column], &below[column]);
-				}
-			}
-			else {
-				for column in 0..Self::WIDTH {
-					Cell::volatile_copy(&mut above[column], &Cell(b'\0', Color::Black));
-				}
+	pub fn set_display(&self, index: usize) -> () {
+		if 0 < index && index < self.screens.len() {
+			let old_index = self.display.load(core::sync::atomic::Ordering::Relaxed);
+			if index != old_index {
+				let mut screen_0 = self.screens[0].lock();
+				// Backup currently displayed screen
+				self.screens[old_index].lock().copy_from(&screen_0);
+				// Display previously backuped screen
+				screen_0.copy_from(&self.screens[index].lock());
+				self.display.store(index, core::sync::atomic::Ordering::Relaxed);
 			}
 		}
-	}
-
-	fn write_new_line(&mut self) -> () {
-		self.cursor.column = 0;
-		self.cursor.line += 1;
-		if Self::HEIGHT == self.cursor.line {
-			self.shift_upward();
+		else {
+			panic!("set_display: index must belong to 1..8");
 		}
-	}
-
-	fn write_byte(&mut self, c: u8) -> () {
-		Cell::volatile_copy(&mut self.buff[self.cursor.line][self.cursor.column], &Cell(c, self.color));
-		self.cursor.column += 1;
-		if Self::WIDTH == self.cursor.column {
-			self.write_new_line();
-		}
-	}
-}
-
-impl core::fmt::Write for VGA {
-	fn write_str(&mut self, s: &str) -> core::fmt::Result {
-		for c in s.bytes() {
-			if c.is_ascii_graphic() {
-				self.write_byte(c);
-			}
-			else if b'\n' == c {
-				self.write_new_line();
-			}
-			else if c.is_ascii_whitespace() {
-				self.write_byte(c);
-			}
-			else {
-				self.write_byte(0x04); // diamond symbol
-			}
-		}
-		Ok(())
 	}
 }
 

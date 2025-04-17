@@ -49,6 +49,7 @@ rustup doc --core
 [crates.io — spin](https://crates.io/crates/spin)  
 [Rust API documentation — core::hint::spin_loop (function)](https://doc.rust-lang.org/stable/core/hint/fn.spin_loop.html)  
 [Rust API documentation — core::sync::atomic (module)](https://doc.rust-lang.org/stable/core/sync/atomic/index.html)  
+[Rust API documentation — std::sync::Mutex (struct)](https://doc.rust-lang.org/stable/std/sync/struct.Mutex.html)  
 
 ### target-triplet
 [The rustc book — Platform Support — x86_64-unknown-none](https://doc.rust-lang.org/rustc/platform-support/x86_64-unknown-none.html)  

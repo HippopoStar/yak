@@ -7,11 +7,13 @@ use core::fmt::Write;
 
 /// This function is called on panic.
 #[panic_handler]
-fn panic(_info: &core::panic::PanicInfo) -> ! {
+fn panic(info: &core::panic::PanicInfo) -> ! {
+	// Meant to be the only occurrence in which screen 0 is allowed
+	let _result: core::fmt::Result = writeln!(vga::_VGA.get_screen(0).lock(), "\n\n{}", info);
 	loop {}
 }
 
-fn print_rainbow_42(vga: &mut vga::VGA) -> () {
+fn print_rainbow_42(screen_mutex: &spin::Mutex<vga::screen::Screen>) -> () {
 	let str_42 = "
         :::      ::::::::
       :+:      :+:    :+:
@@ -21,10 +23,11 @@ fn print_rainbow_42(vga: &mut vga::VGA) -> () {
      #+#    #+#
     ###   ########.fr";
 
-	vga.set_color(vga::Color::Black);
+	let mut screen = screen_mutex.lock();
+	screen.set_color(vga::Color::Black);
 	for line in str_42.lines() {
-		writeln!(vga, "{}", line).unwrap();
-		vga.set_next_rainbow_color();
+		writeln!(screen, "{}", line).unwrap();
+		screen.set_next_rainbow_color();
 	}
 }
 
@@ -32,11 +35,10 @@ fn print_rainbow_42(vga: &mut vga::VGA) -> () {
 pub extern "C" fn rust_main() {
 	// ATTENTION: we have a very small stack and no guard page
 
-	let mut vga = vga::VGA::new();
-	print_rainbow_42(&mut vga);
+	print_rainbow_42(vga::_VGA.get_screen(2));
 
-	let vga_writer: &mut dyn core::fmt::Write = &mut vga;
-	write!(vga_writer, "$> ").unwrap();
+	write!(vga::_VGA.get_screen(2).lock(), "$> ").unwrap();
+	vga::_VGA.set_display(2);
 
 	loop {}
 }
