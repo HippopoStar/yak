@@ -1,16 +1,24 @@
 
 #![no_std]
 
+pub mod arch;
 mod vga;
 
 use core::fmt::Write;
+
+// https://os.phil-opp.com/hardware-interrupts/#the-hlt-instruction
+pub fn hlt_loop() -> ! {
+	loop {
+		arch::x86::instructions::hlt();
+	}
+}
 
 /// This function is called on panic.
 #[panic_handler]
 fn panic(info: &core::panic::PanicInfo) -> ! {
 	// Meant to be the only occurrence in which screen 0 is allowed
 	let _result: core::fmt::Result = writeln!(vga::_VGA.get_screen(0), "\n\n{}", info);
-	loop {}
+	hlt_loop();
 }
 
 fn print_rainbow_42(screen_index: usize) -> () {
@@ -40,6 +48,6 @@ pub extern "C" fn rust_main() {
 	write!(vga::_VGA.get_screen(2), "$> ").unwrap();
 	vga::_VGA.set_display(2);
 
-	loop {}
+	hlt_loop();
 }
 

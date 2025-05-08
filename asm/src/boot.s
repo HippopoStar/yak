@@ -13,7 +13,7 @@
 global _start
 extern rust_main
 
-section .data
+section .rodata
 str: db 'Hello world!'                     ; define byte string
 str_len: equ $ - str
 
