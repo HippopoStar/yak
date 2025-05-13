@@ -33,6 +33,15 @@ _EOF
 
 ---
 
+## Docker
+```
+docker image build --tag debian:rust ./docker_image_build_context
+docker run --rm -it -v $(pwd):/yak debian:rust
+sudo chown -R $(id -u):$(id -g) $(pwd)
+```
+
+---
+
 ## Documentation & References
 
 ### The Rust Core Library
@@ -54,8 +63,10 @@ rustup doc --core
 ### Programmable Interrupt Controller 8259
 [crates.io — pic8259](https://crates.io/crates/pic8259) (2nd Edition — 2.3 Interrupts - Hardware Interrupts)  
 [GitHub — Rust OSDev — pic8259 0.10](https://github.com/rust-osdev/pic8259/tree/v0.10.4)  
-[crates.io — x86_64](https://crates.io/crates/x86_64) (2nd Edition — 2.1 Interrupts - CPU Exceptions)  
+[crates.io — x86_64](https://crates.io/crates/x86_64) (2nd Edition — 1.4 Bare Bones - Testing)  
 [GitHub — Rust OSDev — x86_64 0.14](https://github.com/rust-osdev/x86_64/tree/v0.14.13)  
+[crates.io — uart_16550](https://crates.io/crates/uart_16550) (2nd Edition — 1.4 Bare Bones - Testing)  
+[GitHub — Rust OSDev — uart_16550 0.2](https://github.com/rust-osdev/uart_16550/tree/v0.2.19)  
 [crates.io — bootloader](https://crates.io/crates/bootloader) (2nd Edition — 1.2 Bare Bones - A Minimal Rust Kernel)  
 [GitHub — Rust OSDev — bootloader 0.9](https://github.com/rust-osdev/bootloader/tree/v0.9.30)  
 [crates.io — multiboot2](https://crates.io/crates/multiboot2) (1st Edition — 2.1 Memory Management - Allocating Frames)  

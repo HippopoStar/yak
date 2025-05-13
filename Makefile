@@ -43,7 +43,8 @@ $(NAME): $(KERNEL)
 	grub-mkrescue -o $@ $(GRUB_MKRESCUE_OPT) $(ROOTFS_DIR)
 
 $(KERNEL): $(LINKER_SCRIPT) $(LIBBOOT) $(LIBYAK)
-	ld -o $@ --fatal-warnings -n -T $< -L$(LIBBOOT_DIR) -L$(LIBYAK_DIR) --whole-archive -lboot --no-whole-archive -lyak
+	# ld -o $@ --fatal-warnings -n -T $< -L$(LIBBOOT_DIR) -L$(LIBYAK_DIR) --whole-archive -lboot --no-whole-archive -lyak
+	ld -o $@ -n -T $< -L$(LIBYAK_DIR) ./asm/obj/multiboot_header.o ./asm/obj/boot.o -lyak
 
 $(LIBBOOT): FORCE
 	@make -C ./asm all

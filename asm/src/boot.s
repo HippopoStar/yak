@@ -23,6 +23,7 @@ _start:
 	mov esp, stack_top
 	call put_str                           ; Call Procedure
 	mov dword [0xb8f9c], 0x00320034        ; Print '42' to screen (bottom right)
+	push 42;
 	call rust_main
 	hlt                                    ; Halt
 
@@ -38,6 +39,6 @@ put_str:                                   ; -> Max string length = 80x25 bytes 
 
 section .bss
 stack_bottom:
-	resb 1024
+	resb 4096*4
 stack_top:
 

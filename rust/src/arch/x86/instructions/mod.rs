@@ -1,4 +1,7 @@
 
+pub mod interrupts;
+pub mod port;
+
 use core::arch::asm;
 
 /// Halts the CPU until the next interrupt arrives.

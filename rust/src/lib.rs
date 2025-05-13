@@ -1,7 +1,9 @@
 
 #![no_std]
+#![feature(abi_x86_interrupt)]
 
 pub mod arch;
+mod interrupts;
 mod vga;
 
 use core::fmt::Write;
@@ -39,14 +41,25 @@ fn print_rainbow_42(screen_index: usize) -> () {
 	}
 }
 
+fn init() {
+	interrupts::init_idt();
+}
+
 #[no_mangle]
-pub extern "C" fn rust_main() {
+pub extern "C" fn rust_main(n: u32) {
 	// ATTENTION: we have a very small stack and no guard page
+
+	writeln!(vga::_VGA.get_screen(1), "\n{}", n).unwrap();
+	init();
 
 	print_rainbow_42(2);
 
 	write!(vga::_VGA.get_screen(2), "$> ").unwrap();
 	vga::_VGA.set_display(2);
+
+	arch::x86::instructions::interrupts::int3();
+
+	write!(vga::_VGA.get_screen(0), "\nThe END").unwrap();
 
 	hlt_loop();
 }
