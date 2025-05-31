@@ -2,6 +2,7 @@
 use lazy_static::lazy_static;
 use core::fmt::Write;
 use crate::arch::x86::structures::idt::{InterruptDescriptorTable, InterruptStackFrame};
+use crate::PICS;
 
 lazy_static! {
 	static ref IDT: InterruptDescriptorTable = {
@@ -23,5 +24,8 @@ extern "x86-interrupt" fn breakpoint_handler(stack_frame: InterruptStackFrame) -
 
 extern "x86-interrupt" fn timer_handler(stack_frame: InterruptStackFrame) -> ()
 {
-	writeln!(crate::vga::_VGA.get_screen(2), ".").unwrap();
+	write!(crate::vga::_VGA.get_screen(2), ".").unwrap();
+    unsafe {
+        PICS.lock().notify_end_of_interrupt(32);
+    }
 }
