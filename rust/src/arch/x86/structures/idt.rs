@@ -88,7 +88,7 @@ pub struct InterruptDescriptorTable {
 	pub vmm_communication_exception: Entry<HandlerFuncWithErrCode>,
 	pub security_exception: Entry<HandlerFuncWithErrCode>,
 	reserved_3: Entry<HandlerFunc>,
-	interrupts: [Entry<HandlerFunc>; 256 - 32],
+	pub interrupts: [Entry<HandlerFunc>; 256 - 32],
 }
 
 impl InterruptDescriptorTable {
@@ -258,7 +258,7 @@ impl<F> Entry<F> {
 		self.options.set_present(true);
 		{ // DEBUG
 			use core::fmt::Write;
-			writeln!(crate::vga::_VGA.get_screen(1), "{:?}", &self.options).unwrap();
+//			writeln!(crate::vga::_VGA.get_screen(1), "{:?}", &self.options).unwrap();
 		}
 		&mut self.options
 	}
@@ -285,7 +285,7 @@ impl<F: HandlerFuncType> Entry<F> {
 	pub fn set_handler_fn(&mut self, handler: F) -> &mut EntryOptions {
 		{ // DEBUG
 			use core::fmt::Write;
-			writeln!(crate::vga::_VGA.get_screen(1), "&handler as *const _ as u32: {:#x}", &handler as *const _ as u32).unwrap();
+//			writeln!(crate::vga::_VGA.get_screen(1), "&handler as *const _ as u32: {:#x}", &handler as *const _ as u32).unwrap();
 		}
 		unsafe { self.set_handler_addr(handler.to_virt_addr()) }
 	}
@@ -307,7 +307,7 @@ macro_rules! impl_handler_func_type {
 			fn to_virt_addr(self) -> u32 {
 				{ // DEBUG
 					use core::fmt::Write;
-					writeln!(crate::vga::_VGA.get_screen(1), "self as u32: {:#x}", self as u32).unwrap();
+//					writeln!(crate::vga::_VGA.get_screen(1), "self as u32: {:#x}", self as u32).unwrap();
 				}
 				// Casting a function pointer to u32 is fine, if the pointer
 				// width doesn't exeed 32 bits.
