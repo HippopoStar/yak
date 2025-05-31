@@ -43,7 +43,23 @@ fn print_rainbow_42(screen_index: usize) -> () {
 
 fn init() {
 	interrupts::init_idt();
+    unsafe { PICS.lock().initialize() }; // new
+use core::arch::asm;
+    unsafe {
+        asm!("sti", options(preserves_flags, nostack));
+    }
+
+
 }
+
+use arch::x86::pic_8259::ChainedPics;
+use spin;
+
+pub const PIC_1_OFFSET: u8 = 32;
+pub const PIC_2_OFFSET: u8 = PIC_1_OFFSET + 8;
+
+pub static PICS: spin::Mutex<ChainedPics> =
+    spin::Mutex::new(unsafe { ChainedPics::new(PIC_1_OFFSET, PIC_2_OFFSET) });
 
 #[no_mangle]
 pub extern "C" fn rust_main(n: u32) {
@@ -60,7 +76,7 @@ pub extern "C" fn rust_main(n: u32) {
 	arch::x86::instructions::interrupts::int3();
 
 	write!(vga::_VGA.get_screen(0), "\nThe END").unwrap();
-
-	hlt_loop();
+//	hlt_loop();
+    loop {}
 }
 

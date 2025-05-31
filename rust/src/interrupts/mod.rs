@@ -7,6 +7,7 @@ lazy_static! {
 	static ref IDT: InterruptDescriptorTable = {
 		let mut idt = InterruptDescriptorTable::new();
 		idt.breakpoint.set_handler_fn(breakpoint_handler);
+	    idt.interrupts[0].set_handler_fn(timer_handler);
 		idt
 	};
 }
@@ -18,4 +19,9 @@ pub fn init_idt() -> () {
 extern "x86-interrupt" fn breakpoint_handler(stack_frame: InterruptStackFrame) -> ()
 {
 	writeln!(crate::vga::_VGA.get_screen(1), "EXCEPTION: BREAKPOINT\n{:#?}", stack_frame).unwrap();
+}
+
+extern "x86-interrupt" fn timer_handler(stack_frame: InterruptStackFrame) -> ()
+{
+	writeln!(crate::vga::_VGA.get_screen(2), ".").unwrap();
 }
