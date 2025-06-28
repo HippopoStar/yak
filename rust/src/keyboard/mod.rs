@@ -23,7 +23,7 @@ impl Keyboard {
 
     const SCANCODES: &'static [Key] = &[
         Key {character: b'\0', character_uppercase: b'\0'},
-        Key {character: b'`', character_uppercase: b'~'},
+        Key {character: b'!', character_uppercase: b'!'}, // 1 esc
         Key {character: b'1', character_uppercase: b'!'},
         Key {character: b'2', character_uppercase: b'@'},
         Key {character: b'3', character_uppercase: b'#'},
@@ -33,17 +33,100 @@ impl Keyboard {
         Key {character: b'7', character_uppercase: b'&'},
         Key {character: b'8', character_uppercase: b'*'},
         Key {character: b'9', character_uppercase: b'('},
-        Key {character: b'0', character_uppercase: b')'},
-// 42 shift
+        Key {character: b'0', character_uppercase: b')'}, // 11
+        Key {character: b'-', character_uppercase: b'_'},
+        Key {character: b'=', character_uppercase: b'+'},
+        Key {character: b'!', character_uppercase: b'!'}, // 14 backspace
+        Key {character: b'\t', character_uppercase: b'\t'}, // 15
+        Key {character: b'q', character_uppercase: b'Q'},
+        Key {character: b'w', character_uppercase: b'W'},
+        Key {character: b'e', character_uppercase: b'E'},
+        Key {character: b'r', character_uppercase: b'\t'},
+        Key {character: b't', character_uppercase: b'\t'},
+        Key {character: b'y', character_uppercase: b'\t'},
+        Key {character: b'u', character_uppercase: b'\t'},
+        Key {character: b'i', character_uppercase: b'\t'},
+        Key {character: b'o', character_uppercase: b'\t'},
+        Key {character: b'p', character_uppercase: b'\t'},
+        Key {character: b'[', character_uppercase: b'{'},
+        Key {character: b']', character_uppercase: b'}'},
+        Key {character: b'\n', character_uppercase: b'\n'}, // 28 enter
+        Key {character: b'!', character_uppercase: b'!'}, // 29 left ctrl
+        Key {character: b'a', character_uppercase: b'A'}, // 30
+        Key {character: b's', character_uppercase: b'S'},
+        Key {character: b'd', character_uppercase: b'D'},
+        Key {character: b'f', character_uppercase: b'F'},
+        Key {character: b'g', character_uppercase: b'G'},
+        Key {character: b'h', character_uppercase: b'H'}, // 35
+        Key {character: b'j', character_uppercase: b'J'},
+        Key {character: b'k', character_uppercase: b'K'},
+        Key {character: b'l', character_uppercase: b'L'},
+        Key {character: b';', character_uppercase: b':'},
+        Key {character: b'\'', character_uppercase: b'\"'}, // 40
+        Key {character: b'`', character_uppercase: b'~'},
+        Key {character: b'!', character_uppercase: b'!'}, // 42 lshift
+        Key {character: b'\\', character_uppercase: b'|'},
+        Key {character: b'z', character_uppercase: b'Z'},
+        Key {character: b'x', character_uppercase: b'X'},
+        Key {character: b'c', character_uppercase: b'C'}, // 45
+        Key {character: b'v', character_uppercase: b'V'},
+        Key {character: b'b', character_uppercase: b'B'},
+        Key {character: b'n', character_uppercase: b'N'},
+        Key {character: b'm', character_uppercase: b'M'}, // 50
+        Key {character: b',', character_uppercase: b'<'},
+        Key {character: b'.', character_uppercase: b'>'},
+        Key {character: b'/', character_uppercase: b'?'},
+        Key {character: b'!', character_uppercase: b'!'}, // right shift
+        Key {character: b'*', character_uppercase: b'*'}, // 55 * keypad
+        Key {character: b'!', character_uppercase: b'!'}, // right shift
+        Key {character: b' ', character_uppercase: b' '}, // space
+        Key {character: b'!', character_uppercase: b'!'}, // capslock
+        Key {character: b'!', character_uppercase: b'!'}, // f1
+        Key {character: b'!', character_uppercase: b'!'}, // 60 f2
+        Key {character: b'!', character_uppercase: b'!'}, // f3
+        Key {character: b'!', character_uppercase: b'!'}, // f4
+        Key {character: b'!', character_uppercase: b'!'}, // f5
+        Key {character: b'!', character_uppercase: b'!'}, // f6
+        Key {character: b'!', character_uppercase: b'!'}, // 65 f7
+        Key {character: b'!', character_uppercase: b'!'}, // f8
+        Key {character: b'!', character_uppercase: b'!'}, // f9
+        Key {character: b'!', character_uppercase: b'!'}, // f10
+        Key {character: b'!', character_uppercase: b'!'}, // numlock
+        Key {character: b'!', character_uppercase: b'!'}, // 70 scrolllock
+        Key {character: b'7', character_uppercase: b'7'}, // keypad 7
+        Key {character: b'8', character_uppercase: b'8'}, // keypad 8
+        Key {character: b'9', character_uppercase: b'9'}, // keypad 9
+        Key {character: b'-', character_uppercase: b'-'}, // keypad -
+        Key {character: b'4', character_uppercase: b'4'}, // 75 keypad 4
+        Key {character: b'5', character_uppercase: b'5'}, // keypad 5
+        Key {character: b'6', character_uppercase: b'6'}, // keypad 6
+        Key {character: b'+', character_uppercase: b'+'}, // keypad +
+        Key {character: b'1', character_uppercase: b'1'}, // keypad 1
+        Key {character: b'2', character_uppercase: b'2'}, // 80 keypad 2
+        Key {character: b'3', character_uppercase: b'3'}, // keypad 3
+        Key {character: b'0', character_uppercase: b'0'}, // keypad 0
+        Key {character: b'.', character_uppercase: b'.'}, // keypad .
+        Key {character: b'!', character_uppercase: b'!'}, // F11
     ];
 
     let mut port = Port::new(0x60);
     let mut scancode: u8 = unsafe { port.read() };
+    let mut real_scancode: u8 = (scancode & 0x7f);
+    let mut is_pressed: bool = (scancode & 0x80) == 0;
 
-//    if scancode & 0x80 == 0 {
-        write!(crate::vga::_VGA.get_screen(2), "scancode {} ", scancode).unwrap();
-       // write!(crate::vga::_VGA.get_screen(2), "{} ", SCANCODES[scancode as usize]).unwrap();
-  //  }
+    if scancode == 14 {
+        crate::vga::_VGA.get_screen(2).del_byte();
+    }
+    else if scancode != 142{
+    if scancode & 0x80 == 0 {
+        if scancode > 84 {
+            write!(crate::vga::_VGA.get_screen(2), "scancode {} ", scancode).unwrap();
+        }
+        else {
+         write!(crate::vga::_VGA.get_screen(2), "{}", SCANCODES[scancode as usize]).unwrap();
+        }
+      }
+    }
 
     unsafe {
         PICS.lock().notify_end_of_interrupt(33);
