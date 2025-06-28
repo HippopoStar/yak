@@ -1,10 +1,11 @@
 use core::fmt::Write;
 use crate::PICS;
 use crate::arch::x86::instructions::port::Port;
+use core::sync::atomic::{AtomicBool, Ordering};
 use core::fmt;
 
 pub struct Keyboard {
-    shift: bool,
+    shift: core::sync::atomic::AtomicBool,
 }
 
 pub struct Key {
@@ -19,7 +20,7 @@ impl fmt::Display for Key {
 }
 
 impl Keyboard {
-    pub fn print_scancode() -> () {
+    pub fn print_scancode(&self) -> () {
 
     const SCANCODES: &'static [Key] = &[
         Key {character: b'\0', character_uppercase: b'\0'},
@@ -110,31 +111,39 @@ impl Keyboard {
     ];
 
     let mut port = Port::new(0x60);
-    let mut scancode: u8 = unsafe { port.read() };
-    let mut real_scancode: u8 = (scancode & 0x7f);
-    let mut is_pressed: bool = (scancode & 0x80) == 0;
+    let scancode: u8 = unsafe { port.read() };
+    let _real_scancode: u8 = scancode & 0x7f;
+    let _is_pressed: bool = (scancode & 0x80) == 0;
 
-    if scancode == 14 {
+    if scancode == 42 || scancode == 56 {
+        self.shift.store(true, Ordering::Relaxed);
+    }
+    else if scancode == 14 {
         crate::vga::_VGA.get_screen(2).del_byte();
     }
     else if scancode != 142{
-    if scancode & 0x80 == 0 {
-        if scancode > 84 {
-            write!(crate::vga::_VGA.get_screen(2), "scancode {} ", scancode).unwrap();
+        if (scancode & 0x80) == 0 {
+            if scancode > 84 {
+                write!(crate::vga::_VGA.get_screen(2), "scancode {} ", scancode).unwrap();
+            }
+            else {
+                if self.shift.load(Ordering::Relaxed) == false {
+                    write!(crate::vga::_VGA.get_screen(2), "{}", SCANCODES[scancode as usize].character as char).unwrap();
+                }
+                else {
+                    write!(crate::vga::_VGA.get_screen(2), "{}", SCANCODES[scancode as usize].character_uppercase as char).unwrap();
+                }
+            }
+            self.shift.store(false, Ordering::Relaxed);
         }
-        else {
-         write!(crate::vga::_VGA.get_screen(2), "{}", SCANCODES[scancode as usize]).unwrap();
-        }
-      }
     }
 
     unsafe {
         PICS.lock().notify_end_of_interrupt(33);
     }
-
     }
     pub fn new() -> Self {
-        return Self {shift: false}
+        return Self {shift: AtomicBool::new(false)}
     }
 }
 
