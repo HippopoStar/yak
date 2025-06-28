@@ -33,17 +33,24 @@ impl Keyboard {
         Key {character: b'7', character_uppercase: b'&'},
         Key {character: b'8', character_uppercase: b'*'},
         Key {character: b'9', character_uppercase: b'('},
-        Key {character: b'0', character_uppercase: b')'},
+        Key {character: b'0', character_uppercase: b')'}, // 11
+        Key {character: b'-', character_uppercase: b'_'}, 
+        Key {character: b'=', character_uppercase: b'+'}, 
 // 42 shift
     ];
 
     let mut port = Port::new(0x60);
     let mut scancode: u8 = unsafe { port.read() };
 
+    if scancode == 14 {
+        crate::vga::_VGA.get_screen(2).del_byte();    
+    }
+    else if scancode != 142{
 //    if scancode & 0x80 == 0 {
         write!(crate::vga::_VGA.get_screen(2), "scancode {} ", scancode).unwrap();
        // write!(crate::vga::_VGA.get_screen(2), "{} ", SCANCODES[scancode as usize]).unwrap();
   //  }
+    }
 
     unsafe {
         PICS.lock().notify_end_of_interrupt(33);

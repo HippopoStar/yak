@@ -104,6 +104,13 @@ impl Screen {
 			self.write_new_line();
 		}
 	}
+
+pub	fn del_byte(&mut self) -> () {
+		self.cursor.column -= 1;
+		Cell::volatile_copy(&mut self.buff[self.cursor.line][self.cursor.column], &Cell(b'\0', Color::Black));
+        // penser au cas ou la colonne est deja a 0
+	}
+
 }
 
 impl core::fmt::Write for Screen {
