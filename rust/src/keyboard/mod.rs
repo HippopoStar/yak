@@ -5,7 +5,12 @@ use core::sync::atomic::{AtomicBool, Ordering};
 use core::fmt;
 
 pub struct Keyboard {
+<<<<<<< HEAD
     shift: core::sync::atomic::AtomicBool,
+=======
+    shift: core::sync::atomic::AtomicBool, 
+    extended: core::sync::atomic::AtomicBool,
+>>>>>>> 37a23ab (better keyboard handling)
 }
 
 pub struct Key {
@@ -115,16 +120,20 @@ impl Keyboard {
     let _real_scancode: u8 = scancode & 0x7f;
     let _is_pressed: bool = (scancode & 0x80) == 0;
 
-    if scancode == 42 || scancode == 56 {
-        self.shift.store(true, Ordering::Relaxed);
-    }
-    else if scancode == 14 {
-        crate::vga::_VGA.get_screen(2).del_byte();
-    }
-    else if scancode != 142{
-        if (scancode & 0x80) == 0 {
+    if self.extended.load(Ordering::Relaxed) == false {
+        if scancode == 0xE0 {
+            self.extended.store(true, Ordering::Relaxed);
+            write!(crate::vga::_VGA.get_screen(2), "EXTENDED-BYTE ").unwrap();
+        }
+        else if scancode == 42 || scancode == 56 {
+            self.shift.store(true, Ordering::Relaxed);
+        }
+        else if (scancode & 0x80) == 0 {
             if scancode > 84 {
-                write!(crate::vga::_VGA.get_screen(2), "scancode {} ", scancode).unwrap();
+                write!(crate::vga::_VGA.get_screen(2), "UNHANDLED SCANCODE {:#x} !", scancode).unwrap();
+            }
+            else if scancode == 14 {
+                crate::vga::_VGA.get_screen(2).del_byte();
             }
             else {
                 if self.shift.load(Ordering::Relaxed) == false {
@@ -132,18 +141,30 @@ impl Keyboard {
                 }
                 else {
                     write!(crate::vga::_VGA.get_screen(2), "{}", SCANCODES[scancode as usize].character_uppercase as char).unwrap();
+                    self.shift.store(false, Ordering::Relaxed);
                 }
             }
-            self.shift.store(false, Ordering::Relaxed);
         }
     }
+    else {
+        if (scancode & 0x80) == 0 {
+            write!(crate::vga::_VGA.get_screen(2), "scancode {:#x} pressed", scancode).unwrap();
+        }
+        else {
+            write!(crate::vga::_VGA.get_screen(2), "scancode {:#x} released", scancode).unwrap();
+        }
+        self.extended.store(false, Ordering::Relaxed);
+    }
 
-    unsafe {
+   unsafe {
         PICS.lock().notify_end_of_interrupt(33);
     }
     }
     pub fn new() -> Self {
-        return Self {shift: AtomicBool::new(false)}
+        return Self {
+            shift: AtomicBool::new(false),
+            extended: AtomicBool::new(false),
+        }
     }
 }
 
