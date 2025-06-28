@@ -28,7 +28,7 @@ extern "x86-interrupt" fn breakpoint_handler(stack_frame: InterruptStackFrame)
 	writeln!(crate::vga::_VGA.get_screen(1), "EXCEPTION: BREAKPOINT\n{:#?}", stack_frame).unwrap();
 }
 
-extern "x86-interrupt" fn timer_handler(stack_frame: InterruptStackFrame)
+extern "x86-interrupt" fn timer_handler(_stack_frame: InterruptStackFrame)
 {
 //	write!(crate::vga::_VGA.get_screen(2), ".").unwrap();
     unsafe {
@@ -36,7 +36,7 @@ extern "x86-interrupt" fn timer_handler(stack_frame: InterruptStackFrame)
     }
 }
 
-extern "x86-interrupt" fn keyboard_handler(stack_frame: InterruptStackFrame)
+extern "x86-interrupt" fn keyboard_handler(_stack_frame: InterruptStackFrame)
 {
-    Keyboard::print_scancode();
+    _KB.print_scancode();
 }
