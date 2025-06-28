@@ -5,6 +5,7 @@
 pub mod arch;
 mod interrupts;
 mod vga;
+mod keyboard;
 
 use core::fmt::Write;
 
