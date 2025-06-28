@@ -16,10 +16,7 @@ lazy_static! {
 }
 
 lazy_static! {
-	static ref KB: Keyboard = {
-        let mut kb = Keyboard::new();
-        kb
-    };
+	pub static ref _KB: Keyboard = Keyboard::new();
 }
 
 pub fn init_idt() -> () {
