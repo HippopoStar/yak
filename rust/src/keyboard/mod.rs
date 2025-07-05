@@ -123,24 +123,24 @@ impl Keyboard {
     if self.extended.load(Ordering::Relaxed) == false {
         if scancode == 0xE0 {
             self.extended.store(true, Ordering::Relaxed);
-            write!(crate::vga::_VGA.get_screen(2), "EXTENDED-BYTE ").unwrap();
+            write!(crate::vga::_VGA.get_current_screen(), "EXTENDED-BYTE ").unwrap();
         }
         else if scancode == 42 || scancode == 56 {
             self.shift.store(true, Ordering::Relaxed);
         }
         else if (scancode & 0x80) == 0 {
             if scancode > 84 {
-                write!(crate::vga::_VGA.get_screen(2), "UNHANDLED SCANCODE {:#x} !", scancode).unwrap();
+                write!(crate::vga::_VGA.get_current_screen(), "UNHANDLED SCANCODE {:#x} !", scancode).unwrap();
             }
             else if scancode == 14 {
-                crate::vga::_VGA.get_screen(2).del_byte();
+                crate::vga::_VGA.get_current_screen().del_byte();
             }
             else {
                 if self.shift.load(Ordering::Relaxed) == false {
-                    write!(crate::vga::_VGA.get_screen(2), "{}", SCANCODES[scancode as usize].character as char).unwrap();
+                    write!(crate::vga::_VGA.get_current_screen(), "{}", SCANCODES[scancode as usize].character as char).unwrap();
                 }
                 else {
-                    write!(crate::vga::_VGA.get_screen(2), "{}", SCANCODES[scancode as usize].character_uppercase as char).unwrap();
+                    write!(crate::vga::_VGA.get_current_screen(), "{}", SCANCODES[scancode as usize].character_uppercase as char).unwrap();
                     self.shift.store(false, Ordering::Relaxed);
                 }
             }
