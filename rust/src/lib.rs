@@ -66,17 +66,18 @@ pub static PICS: spin::Mutex<ChainedPics> =
 pub extern "C" fn rust_main(n: u32) {
 	// ATTENTION: we have a very small stack and no guard page
 
-	writeln!(vga::_VGA.get_screen(1), "\n{}", n).unwrap();
+	vga::_VGA.set_display(7);
+	writeln!(vga::_VGA.get_current_screen(), "\n{}", n).unwrap();
 	init();
 
-	print_rainbow_42(2);
+	print_rainbow_42(7);
 
-	write!(vga::_VGA.get_screen(2), "$> ").unwrap();
-	vga::_VGA.set_display(2);
+	write!(vga::_VGA.get_current_screen(), "$> ").unwrap();
+	write!(vga::_VGA.get_current_screen(), "\nThe END").unwrap();
 
+	vga::_VGA.set_display(6);
 	arch::x86::instructions::interrupts::int3();
 
-	write!(vga::_VGA.get_screen(0), "\nThe END").unwrap();
 //	hlt_loop();
     loop {}
 }
