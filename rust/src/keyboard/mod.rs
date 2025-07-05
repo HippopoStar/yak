@@ -5,12 +5,9 @@ use core::sync::atomic::{AtomicBool, Ordering};
 use core::fmt;
 
 pub struct Keyboard {
-<<<<<<< HEAD
     shift: core::sync::atomic::AtomicBool,
-=======
-    shift: core::sync::atomic::AtomicBool, 
     extended: core::sync::atomic::AtomicBool,
->>>>>>> 37a23ab (better keyboard handling)
+    ctrl: core::sync::atomic::AtomicBool,
 }
 
 pub struct Key {
@@ -128,6 +125,9 @@ impl Keyboard {
         else if scancode == 42 || scancode == 56 {
             self.shift.store(true, Ordering::Relaxed);
         }
+         else if scancode == 29 {
+            self.ctrl.store(true, Ordering::Relaxed);
+        }
         else if (scancode & 0x80) == 0 {
             if scancode > 84 {
                 write!(crate::vga::_VGA.get_current_screen(), "UNHANDLED SCANCODE {:#x} !", scancode).unwrap();
@@ -136,7 +136,19 @@ impl Keyboard {
                 crate::vga::_VGA.get_current_screen().del_byte();
             }
             else {
-                if self.shift.load(Ordering::Relaxed) == false {
+                /*
+                if SCANCODES[scancode as usize].character.is_ascii_digit() {
+                    let value = SCANCODES[scancode as usize].character - b'1';
+                    if 0 <= value && value < 8 {
+                        crate::vga::_VGA.set_display(value as usize);
+                    }
+                }
+                */
+                if 59 <= scancode && scancode <= 66 {
+                    let value = scancode - 59;
+                    crate::vga::_VGA.set_display(value as usize);
+                }
+                else if self.shift.load(Ordering::Relaxed) == false {
                     write!(crate::vga::_VGA.get_current_screen(), "{}", SCANCODES[scancode as usize].character as char).unwrap();
                 }
                 else {
@@ -148,10 +160,10 @@ impl Keyboard {
     }
     else {
         if (scancode & 0x80) == 0 {
-            write!(crate::vga::_VGA.get_screen(2), "scancode {:#x} pressed", scancode).unwrap();
+            write!(crate::vga::_VGA.get_current_screen(), "scancode {:#x} pressed", scancode).unwrap();
         }
         else {
-            write!(crate::vga::_VGA.get_screen(2), "scancode {:#x} released", scancode).unwrap();
+            write!(crate::vga::_VGA.get_current_screen(), "scancode {:#x} released", scancode).unwrap();
         }
         self.extended.store(false, Ordering::Relaxed);
     }
@@ -164,6 +176,7 @@ impl Keyboard {
         return Self {
             shift: AtomicBool::new(false),
             extended: AtomicBool::new(false),
+            ctrl: AtomicBool::new(false),
         }
     }
 }
