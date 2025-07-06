@@ -107,9 +107,31 @@ impl Screen {
 		}
 	}
 
-	fn erase_character(&mut self, line: usize, column: usize) -> () {
-		// TODO: shift left following caracters
-		Cell::volatile_copy(&mut self.buff[line][column], &Cell(b'\0', Color::Black));
+	// Collections -> Vec<T> -> Splitting
+	// https://doc.rust-lang.org/stable/core/primitive.slice.html#method.chunks_mut
+	fn shift_leftward(&mut self, line: usize, mut column: usize) -> () {
+		let mut it_lines = self.buff.iter_mut().skip(line).peekable();
+		while let Some(above) = it_lines.next() {
+			let mut it_columns = above.iter_mut().skip(column).peekable();
+			column = 0;
+			while let Some(current) = it_columns.next() {
+				let mut next: &Cell = &Cell(b'\0', Color::Black);
+				if let Some(rightward) = it_columns.peek() {
+					next = &rightward;
+				}
+				else if let Some(below) = it_lines.peek() {
+					next = &below[0];
+				}
+				// References -> Working with References -> Comparing References
+				if current != next {
+					Cell::volatile_copy(current, next);
+				}
+			}
+		}
+	}
+
+	pub fn suppr_byte(&mut self) -> () {
+		self.shift_leftward(self.cursor.line, self.cursor.column);
 	}
 
 	pub fn del_byte(&mut self) -> () {
@@ -123,7 +145,7 @@ impl Screen {
 			self.cursor.column = Self::WIDTH;
 		}
 		self.cursor.column -= 1;
-		self.erase_character(self.cursor.line, self.cursor.column);
+		self.shift_leftward(self.cursor.line, self.cursor.column);
 	}
 }
 
