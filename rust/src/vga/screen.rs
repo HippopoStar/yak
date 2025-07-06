@@ -91,11 +91,11 @@ impl Screen {
 
 	fn write_new_line(&mut self) -> () {
 		self.cursor.column = 0;
-		if Self::HEIGHT == self.cursor.line + 1 {
-			self.shift_upward();
+		if self.cursor.line + 1 < Self::HEIGHT {
+			self.cursor.line += 1;
 		}
 		else {
-			self.cursor.line += 1;
+			self.shift_upward();
 		}
 	}
 
@@ -107,13 +107,27 @@ impl Screen {
 		}
 	}
 
-pub	fn del_byte(&mut self) -> () {
-		self.cursor.column -= 1;
-		Cell::volatile_copy(&mut self.buff[self.cursor.line][self.cursor.column], &Cell(b'\0', Color::Black));
-        // penser au cas ou la colonne est deja a 0
+	fn erase_character(&mut self, line: usize, column: usize) -> () {
+		// TODO: shift left following caracters
+		Cell::volatile_copy(&mut self.buff[line][column], &Cell(b'\0', Color::Black));
 	}
 
+	pub fn del_byte(&mut self) -> () {
+		if 0 == self.cursor.column {
+			if 0 == self.cursor.line {
+				// TODO: retrieve last line in history buffer
+			}
+			else {
+				self.cursor.line -= 1;
+			}
+			self.cursor.column = Self::WIDTH;
+		}
+		self.cursor.column -= 1;
+		self.erase_character(self.cursor.line, self.cursor.column);
+	}
 }
+
+// TODO: 2 modes, default & insert (replacing characters in place)
 
 impl core::fmt::Write for Screen {
 	fn write_str(&mut self, s: &str) -> core::fmt::Result {
