@@ -1,4 +1,5 @@
-use core::fmt::Write;
+
+use crate::kprint;
 use crate::PICS;
 use crate::arch::x86::instructions::port::Port;
 use core::sync::atomic::{AtomicBool, Ordering};
@@ -120,7 +121,7 @@ impl Keyboard {
     if self.extended.load(Ordering::Relaxed) == false {
         if scancode == 0xE0 {
             self.extended.store(true, Ordering::Relaxed);
-            write!(crate::vga::_VGA.get_current_screen(), "EXTENDED-BYTE ").unwrap();
+            kprint!("EXTENDED-BYTE ").unwrap();
         }
         else if scancode == 42 || scancode == 56 {
             self.shift.store(true, Ordering::Relaxed);
@@ -130,10 +131,10 @@ impl Keyboard {
         }
         else if (scancode & 0x80) == 0 {
             if scancode > 84 {
-                write!(crate::vga::_VGA.get_current_screen(), "UNHANDLED SCANCODE {:#x} !", scancode).unwrap();
+                kprint!("UNHANDLED SCANCODE {:#x} !", scancode).unwrap();
             }
             else if scancode == 14 {
-                crate::vga::_VGA.get_current_screen().del_byte();
+                crate::vga::_VGA.get_current_screen().del_byte(); // TODO: remove lock -> kprint(b"\b")
             }
             else {
                 /*
@@ -149,10 +150,10 @@ impl Keyboard {
                     crate::vga::_VGA.set_display(value as usize);
                 }
                 else if self.shift.load(Ordering::Relaxed) == false {
-                    write!(crate::vga::_VGA.get_current_screen(), "{}", SCANCODES[scancode as usize].character as char).unwrap();
+                    kprint!("{}", SCANCODES[scancode as usize].character as char).unwrap();
                 }
                 else {
-                    write!(crate::vga::_VGA.get_current_screen(), "{}", SCANCODES[scancode as usize].character_uppercase as char).unwrap();
+                    kprint!("{}", SCANCODES[scancode as usize].character_uppercase as char).unwrap();
                     self.shift.store(false, Ordering::Relaxed);
                 }
             }
@@ -160,10 +161,10 @@ impl Keyboard {
     }
     else {
         if (scancode & 0x80) == 0 {
-            write!(crate::vga::_VGA.get_current_screen(), "scancode {:#x} pressed", scancode).unwrap();
+            kprint!("scancode {:#x} pressed", scancode).unwrap();
         }
         else {
-            write!(crate::vga::_VGA.get_current_screen(), "scancode {:#x} released", scancode).unwrap();
+            kprint!("scancode {:#x} released", scancode).unwrap();
         }
         self.extended.store(false, Ordering::Relaxed);
     }
