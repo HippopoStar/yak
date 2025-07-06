@@ -91,9 +91,11 @@ impl Screen {
 
 	fn write_new_line(&mut self) -> () {
 		self.cursor.column = 0;
-		self.cursor.line += 1;
-		if Self::HEIGHT == self.cursor.line {
+		if Self::HEIGHT == self.cursor.line + 1 {
 			self.shift_upward();
+		}
+		else {
+			self.cursor.line += 1;
 		}
 	}
 

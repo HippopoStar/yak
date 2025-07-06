@@ -147,16 +147,14 @@ impl InterruptDescriptorTable {
 	///   a `Box`.
 	pub unsafe fn load_unsafe(&self) {
 		{ // DEBUG
-			use core::fmt::Write;
-			writeln!(crate::vga::_VGA.get_screen(1), "interrupts::IDT.pointer(): {:?}", &self.pointer()).unwrap();
+			crate::kwriteln!(1, "interrupts::IDT.pointer(): {:?}", &self.pointer()).unwrap();
 		}
 		unsafe {
 			lidt(&self.pointer());
 		}
 		{ // DEBUG
-			use core::fmt::Write;
 			let idt: crate::arch::x86::structures::idt::DescriptorTablePointer = crate::arch::x86::structures::idt::sidt();
-			writeln!(crate::vga::_VGA.get_screen(1), "crate::arch::x86::structures::idt::sidt(): {:?}", idt).unwrap();
+			crate::kwriteln!(1, "crate::arch::x86::structures::idt::sidt(): {:?}", idt).unwrap();
 		}
 	}
 
@@ -257,8 +255,7 @@ impl<F> Entry<F> {
 		unsafe { self.options.set_code_selector(get_reg_code_segment()) };
 		self.options.set_present(true);
 		{ // DEBUG
-	//		use core::fmt::Write;
-//			writeln!(crate::vga::_VGA.get_screen(1), "{:?}", &self.options).unwrap();
+			// crate::kwriteln!(1, "{:?}", &self.options).unwrap();
 		}
 		&mut self.options
 	}
@@ -284,8 +281,7 @@ impl<F: HandlerFuncType> Entry<F> {
 	/// unsafe [`Entry::set_handler_addr`] method has to be used instead.
 	pub fn set_handler_fn(&mut self, handler: F) -> &mut EntryOptions {
 		{ // DEBUG
-	//		use core::fmt::Write;
-//			writeln!(crate::vga::_VGA.get_screen(1), "&handler as *const _ as u32: {:#x}", &handler as *const _ as u32).unwrap();
+			// crate::kwriteln!(1, "&handler as *const _ as u32: {:#x}", &handler as *const _ as u32).unwrap();
 		}
 		unsafe { self.set_handler_addr(handler.to_virt_addr()) }
 	}
@@ -306,8 +302,7 @@ macro_rules! impl_handler_func_type {
 		unsafe impl HandlerFuncType for $f {
 			fn to_virt_addr(self) -> u32 {
 				{ // DEBUG
-					//use core::fmt::Write;
-//					writeln!(crate::vga::_VGA.get_screen(1), "self as u32: {:#x}", self as u32).unwrap();
+					// crate::kwriteln!(1, "self as u32: {:#x}", self as u32).unwrap();
 				}
 				// Casting a function pointer to u32 is fine, if the pointer
 				// width doesn't exeed 32 bits.
