@@ -76,9 +76,10 @@ pub fn _write(idx: usize, args: core::fmt::Arguments) -> core::fmt::Result {
 // ===== Color =====
 
 #[allow(dead_code)]
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+#[derive(Default, Debug, Copy, Clone, PartialEq, Eq)]
 #[repr(u8)]
 pub enum Color {
+	#[default]
 	Black = 0,
 	Blue = 1,
 	Green = 2,
@@ -141,7 +142,7 @@ impl VGA {
 		if index < Self::SIZE {
 			let old_index = self.display.swap(index, core::sync::atomic::Ordering::Relaxed);
 			if index != old_index {
-				let mut ports_guard = self.ports.lock(); // TODO: without_interrupts
+				let mut ports_guard = self.ports.lock(); // TODO: without_interrupts (unless only keyboard interrupts can trigger this method)
 				unsafe {
 					ports_guard.command.write(0x0c);
 					ports_guard.data.write(((self.screen_offset[index] >> 8) & 0xFF) as u8);

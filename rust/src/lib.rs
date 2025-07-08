@@ -102,6 +102,12 @@ pub extern "C" fn rust_main(n: u32) {
 		zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz\
 		"
 	).unwrap();
+	for _ in 0..10 {
+		vga::_VGA.get_screen(6).shift_upward();
+	}
+	for _ in 0..10 {
+		vga::_VGA.get_screen(6).shift_downward();
+	}
 	arch::x86::instructions::interrupts::int3();
 
 	// hlt_loop();
