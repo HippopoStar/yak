@@ -17,20 +17,22 @@ lazy_static::lazy_static! {
 // https://doc.rust-lang.org/stable/core/macro.writeln.html
 // https://doc.rust-lang.org/stable/std/macro.println.html
 
+// ===== print! =====
+
 #[macro_export]
-macro_rules! kprint {
+macro_rules! vga_print {
 	($($arg:tt)*) => {
 		$crate::vga::_print(core::format_args!($($arg)*))
 	};
 }
 
 #[macro_export]
-macro_rules! kprintln {
+macro_rules! vga_println {
 	() => {
-		$crate::kprint!("\n")
+		$crate::vga_print!("\n")
 	};
 	($($arg:tt)*) => {
-		$crate::kprint!("{}\n", core::format_args!($($arg)*))
+		$crate::vga_print!("{}\n", core::format_args!($($arg)*))
 	};
 }
 
@@ -45,31 +47,33 @@ pub fn _print(args: core::fmt::Arguments) -> core::fmt::Result {
 	result
 }
 
+// ===== write! =====
+
 #[macro_export]
-macro_rules! kwrite {
+macro_rules! vga_write {
 	($dst:expr, $($arg:tt)*) => {
 		$crate::vga::_write($dst, core::format_args!($($arg)*))
 	};
 }
 
 #[macro_export]
-macro_rules! kwriteln {
+macro_rules! vga_writeln {
 	($dst:expr $(,)?) => {
-		$crate::kwrite!($dst, "\n")
+		$crate::vga_write!($dst, "\n")
 	};
 	($dst:expr, $($arg:tt)*) => {
-		$crate::kwrite!($dst, "{}\n", core::format_args!($($arg)*))
+		$crate::vga_write!($dst, "{}\n", core::format_args!($($arg)*))
 	};
 }
 
 #[doc(hidden)]
 pub fn _write(idx: usize, args: core::fmt::Arguments) -> core::fmt::Result {
 	let mut result: core::fmt::Result = Err(core::fmt::Error);
-	if idx < crate::vga::VGA::SIZE {
-		interrupts::without_interrupts(|| {
-			result = crate::vga::_VGA.get_screen(idx).write_fmt(args);
-		});
-	}
+	interrupts::without_interrupts(|| {
+		if let Some(mut screen) = crate::vga::_VGA.get_screen(idx) {
+			result = screen.write_fmt(args);
+		}
+	});
 	result
 }
 
@@ -90,7 +94,7 @@ pub enum Color {
 	White = 7,
 }
 
-// ===== VGA =====
+// ===== VGAPorts =====
 
 // CRTC register selector
 const VGA_CRTC_INDEX: u16 = 0x3D4;
@@ -103,35 +107,41 @@ struct VGAPorts {
 	data: Port<u8>,
 }
 
+// ===== VGA =====
+
 //#[derive(Debug)]
 pub struct VGA {
 	display: core::sync::atomic::AtomicUsize,
-	screens: [spin::Mutex<Screen>; Self::SIZE],
-	screen_offset: [usize; Self::SIZE],
+	screens: [spin::Mutex<Screen>; Self::LENGTH],
+	screen_offset: [usize; Self::LENGTH],
 	ports: spin::Mutex<VGAPorts>,
 }
 
 impl VGA {
 	const ADDR: usize = 0x000b8000;
-	const SIZE: usize = 8;
+	const LENGTH: usize = 8;
 
 	pub fn new() -> Self {
 		Self {
 			display: core::sync::atomic::AtomicUsize::new(1),
 			screens: core::array::from_fn(|i| spin::Mutex::new(Screen::new(Self::ADDR + i * Screen::SIZE))),
+			screen_offset: core::array::from_fn(|i| i * Screen::LENGTH),
 			ports: spin::Mutex::new(
 				VGAPorts {
 					command: Port::new(VGA_CRTC_INDEX),
 					data: Port::new(VGA_CRTC_DATA),
 				}
 			),
-			screen_offset: core::array::from_fn(|i| i * 2000),
 		}
 	}
 
-	pub fn get_screen(&self, index: usize) -> spin::MutexGuard<Screen> {
-		// TODO: check index against Self::SIZE
-		self.screens[index].lock()
+	fn get_screen(&self, index: usize) -> Option<spin::MutexGuard<Screen>> {
+		if index < Self::LENGTH {
+			Some(self.screens[index].lock())
+		}
+		else {
+			None
+		}
 	}
 
 	pub fn get_current_screen(&self) -> spin::MutexGuard<Screen> {
@@ -139,7 +149,7 @@ impl VGA {
 	}
 
 	pub fn set_display(&self, index: usize) -> () {
-		if index < Self::SIZE {
+		if index < Self::LENGTH {
 			let old_index = self.display.swap(index, core::sync::atomic::Ordering::Relaxed);
 			if index != old_index {
 				let mut ports_guard = self.ports.lock(); // TODO: without_interrupts (unless only keyboard interrupts can trigger this method)
@@ -152,7 +162,7 @@ impl VGA {
 			}
 		}
 		else {
-			panic!("set_display: index must belong to 1..8");
+			panic!("set_display: index must belong to 0..7");
 		}
 	}
 }

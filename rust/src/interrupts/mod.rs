@@ -1,8 +1,9 @@
 
 use lazy_static::lazy_static;
+use spin;
 use crate::arch::x86::structures::idt::{InterruptDescriptorTable, InterruptStackFrame};
-use crate::PICS;
-use crate::keyboard::Keyboard; 
+use crate::arch::x86::pic_8259::ChainedPics;
+use crate::keyboard;
 
 lazy_static! {
 	static ref IDT: InterruptDescriptorTable = {
@@ -14,28 +15,34 @@ lazy_static! {
 	};
 }
 
-lazy_static! {
-	pub static ref _KB: Keyboard = Keyboard::new();
-}
-
 pub fn init_idt() -> () {
 	IDT.load();
 }
 
+pub const PIC_1_OFFSET: u8 = 32;
+pub const PIC_2_OFFSET: u8 = PIC_1_OFFSET + 8;
+
+pub static _PICS: spin::Mutex<ChainedPics> = spin::Mutex::new(unsafe { ChainedPics::new(PIC_1_OFFSET, PIC_2_OFFSET) });
+
+
+
 extern "x86-interrupt" fn breakpoint_handler(stack_frame: InterruptStackFrame)
 {
-	crate::kwriteln!(1, "EXCEPTION: BREAKPOINT\n{:#?}", stack_frame).unwrap(); // TODO: print on serial port
+	crate::vga_writeln!(1, "EXCEPTION: BREAKPOINT\n{:#?}", stack_frame).unwrap(); // TODO: print on serial port
 }
 
 extern "x86-interrupt" fn timer_handler(_stack_frame: InterruptStackFrame)
 {
-	// crate::kwrite!(2, ".").unwrap();
+	// crate::vga_write!(2, ".").unwrap();
 	unsafe {
-		PICS.lock().notify_end_of_interrupt(32);
+		_PICS.lock().notify_end_of_interrupt(32);
 	}
 }
 
 extern "x86-interrupt" fn keyboard_handler(_stack_frame: InterruptStackFrame)
 {
-	_KB.print_scancode();
+	keyboard::_KB.print_scancode();
+	unsafe {
+		_PICS.lock().notify_end_of_interrupt(33);
+	}
 }
