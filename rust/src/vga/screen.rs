@@ -104,7 +104,7 @@ impl<const N: usize> History<N> {
 // ===== Screen =====
 
 #[derive(Debug)]
-pub struct Screen {
+pub struct Screen { // TODO: pub(super)
 	cursor: Cursor,
 	color: Color,
 	history: History<5>,
@@ -114,7 +114,8 @@ pub struct Screen {
 impl Screen {
 	const HEIGHT: usize = 25;
 	const WIDTH: usize = 80;
-	pub(super) const SIZE: usize = Self::HEIGHT * Self::WIDTH * core::mem::size_of::<Cell>();
+	pub const LENGTH: usize = Self::HEIGHT * Self::WIDTH;
+	pub const SIZE: usize = Self::LENGTH * core::mem::size_of::<Cell>();
 
 	pub fn new(addr: usize) -> Self {
 		Self {

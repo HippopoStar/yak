@@ -18,7 +18,7 @@ pub fn hlt_loop() -> ! {
 #[panic_handler]
 fn panic(info: &core::panic::PanicInfo) -> ! {
 	// Meant to be the only occurrence in which screen 0 is allowed
-	let _result: core::fmt::Result = kwriteln!(0, "\n\n{}", info); // TODO: write on serial port
+	let _result: core::fmt::Result = vga_writeln!(0, "\n\n{}", info); // TODO: write on serial port
 	hlt_loop();
 }
 
@@ -42,37 +42,26 @@ fn panic(info: &core::panic::PanicInfo) -> ! {
 
 fn init() {
 	interrupts::init_idt();
-	unsafe { PICS.lock().initialize() }; // new
+	unsafe { interrupts::_PICS.lock().initialize() };
 
-	use core::arch::asm;
-	unsafe {
-		asm!("sti", options(preserves_flags, nostack));
-	}
+	arch::x86::instructions::interrupts::enable();
 }
-
-use arch::x86::pic_8259::ChainedPics;
-use spin;
-
-pub const PIC_1_OFFSET: u8 = 32;
-pub const PIC_2_OFFSET: u8 = PIC_1_OFFSET + 8;
-
-pub static PICS: spin::Mutex<ChainedPics> = spin::Mutex::new(unsafe { ChainedPics::new(PIC_1_OFFSET, PIC_2_OFFSET) });
 
 #[no_mangle]
 pub extern "C" fn rust_main(n: u32) {
 	// ATTENTION: we have a very small stack and no guard page
 
 	vga::_VGA.set_display(7);
-	kprintln!("\n{}", n).unwrap();
+	vga_println!("\n{}", n).unwrap();
 	init();
 
 	// print_rainbow_42(7);
 
-	kprint!("$> ").unwrap();
-	kprint!("\nThe END").unwrap();
+	vga_print!("$> ").unwrap();
+	vga_print!("\nThe END").unwrap();
 
 	vga::_VGA.set_display(6);
-	kprint!(
+	vga_print!(
 		"\
 		aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\
 		bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\
@@ -103,14 +92,13 @@ pub extern "C" fn rust_main(n: u32) {
 		"
 	).unwrap();
 	for _ in 0..10 {
-		vga::_VGA.get_screen(6).shift_upward();
+		vga::_VGA.get_current_screen().shift_upward();
 	}
 	for _ in 0..10 {
-		vga::_VGA.get_screen(6).shift_downward();
+		vga::_VGA.get_current_screen().shift_downward();
 	}
 	arch::x86::instructions::interrupts::int3();
 
-	// hlt_loop();
-	loop {}
+	hlt_loop();
 }
 
