@@ -30,6 +30,40 @@ fn copy_row(dst: &mut [Cell; Screen::WIDTH], src: &[Cell; Screen::WIDTH]) -> () 
 	}
 }
 
+fn right_shift_row(row: &mut [Cell; Screen::WIDTH], column: usize) {
+	if column < Screen::WIDTH {
+		let last_cell = *(row.last().unwrap());
+		let mut it_columns = row.iter_mut().rev().take(Screen::WIDTH - column).peekable();
+		while let Some(current) = it_columns.next() {
+			if let Some(leftward) = it_columns.peek() {
+				if leftward != &current {
+					Cell::volatile_copy(current, leftward);
+				}
+			}
+			else {
+				Cell::volatile_copy(current, &last_cell);
+			}
+		}
+	}
+}
+
+fn left_shift_row(row: &mut [Cell; Screen::WIDTH], column: usize) {
+	if column < Screen::WIDTH {
+		let first_cell = *(row.get(column).unwrap());
+		let mut it_columns = row.iter_mut().skip(column).peekable();
+		while let Some(current) = it_columns.next() {
+			if let Some(rightward) = it_columns.peek() {
+				if rightward != &current {
+					Cell::volatile_copy(current, rightward);
+				}
+			}
+			else {
+				Cell::volatile_copy(current, &first_cell);
+			}
+		}
+	}
+}
+
 // // Fundamental Types -> Type Aliases
 // // Structs -> Tuple-Like Structs
 // #[repr(transparent)]
@@ -104,11 +138,12 @@ impl<const N: usize> History<N> {
 // ===== Screen =====
 
 #[derive(Debug)]
-pub struct Screen { // TODO: pub(super)
+pub(super) struct Screen {
 	cursor: Cursor,
 	color: Color,
 	history: History<5>,
 	buff: &'static mut [[Cell; Self::WIDTH]; Self::HEIGHT],
+	input_mode: bool,
 }
 
 impl Screen {
@@ -126,11 +161,16 @@ impl Screen {
 			color: Color::default(),
 			history: History::new(),
 			buff: unsafe { &mut (*(addr as *mut _)) },
+			input_mode: false,
 		}
 	}
 
 	pub fn set_color(&mut self, color: Color) -> () {
 		self.color = color;
+	}
+
+	pub fn set_input_mode(&mut self, input_mode: bool) {
+		self.input_mode = input_mode;
 	}
 
 	pub fn set_next_rainbow_color(&mut self) -> () {
@@ -143,6 +183,7 @@ impl Screen {
 			Color::Cyan => Color::Blue,
 			Color::Blue => Color::Magenta,
 			Color::Magenta => Color::Black,
+			_ => self.color,
 		}
 	}
 
@@ -154,7 +195,7 @@ impl Screen {
 	// 	}
 	// }
 
-	pub fn shift_upward(&mut self) -> () {
+	fn shift_upward(&mut self) -> () {
 		let lower_row = &mut [Cell::default(); Screen::WIDTH];
 		self.history.push_upper_row(self.buff.first().unwrap(), lower_row);
 
@@ -169,7 +210,7 @@ impl Screen {
 		}
 	}
 
-	pub fn shift_downward(&mut self) -> () {
+	fn shift_downward(&mut self) -> () {
 		if 0 < self.history.get_pivot() {
 			let upper_row = &mut [Cell::default(); Screen::WIDTH];
 			self.history.pop_upper_row(upper_row, self.buff.last().unwrap());
@@ -214,11 +255,13 @@ impl Screen {
 			column = 0;
 			while let Some(current) = it_columns.next() {
 				let mut next: &Cell = &Cell::default();
+				// Same row, rightward character
 				if let Some(rightward) = it_columns.peek() {
-					next = &rightward;
+					next = rightward;
 				}
+				// Underneath row, first character
 				else if let Some(below) = it_rows.peek() {
-					next = &below[0];
+					next = below.first().unwrap();
 				}
 				// References -> Working with References -> Comparing References
 				if current != next {
@@ -228,11 +271,43 @@ impl Screen {
 		}
 	}
 
-	pub fn suppr_byte(&mut self) -> () {
+	// Iterators -> Implementing Your Own Iterators
+	// .rev().take(Self::HEIGHT - row).peekable()
+	// !(b'\0' == leftward.0)
+	fn shift_rightward(&mut self, row: usize, mut column: usize) -> () {
+		let mut last_column_above_row = Cell::default();
+		let mut it_rows = self.buff.iter_mut().skip(row).peekable();
+		while let Some(above) = it_rows.next() {
+			let mut last_column_current_row = Cell::default();
+			let mut it_columns = above.iter_mut().rev().take(Self::WIDTH - column).peekable();
+			column = 0;
+			if let Some(last_column) = it_columns.peek() {
+				Cell::volatile_copy(&mut last_column_current_row, last_column);
+			}
+			while let Some(current) = it_columns.next() {
+				if let Some(leftward) = it_columns.peek() {
+					Cell::volatile_copy(current, leftward);
+				}
+				else {
+					Cell::volatile_copy(current, &last_column_above_row);
+				}
+			}
+			last_column_above_row = last_column_current_row;
+		}
+		if &Cell::default() != self.buff.last().unwrap().last().unwrap() {
+			self.shift_upward(); // TODO: ensure scroll to bottom first
+			if 0 < self.cursor.row {
+				self.cursor.row -= 1;
+			}
+			Cell::volatile_copy(self.buff.last_mut().unwrap().first_mut().unwrap(), &last_column_above_row);
+		}
+	}
+
+	fn suppr_byte(&mut self) -> () {
 		self.shift_leftward(self.cursor.row, self.cursor.column);
 	}
 
-	pub fn del_byte(&mut self) -> () {
+	fn del_byte(&mut self) -> () {
 		if 0 == self.cursor.column {
 			if 0 == self.cursor.row {
 				// retrieve last row in history buffer
@@ -257,21 +332,82 @@ impl Screen {
 
 impl core::fmt::Write for Screen {
 	fn write_str(&mut self, s: &str) -> core::fmt::Result {
-		for c in s.bytes() {
-			if c.is_ascii_graphic() {
-				self.write_byte(c);
-			}
-			else if b'\n' == c {
-				self.write_new_line();
-			}
-			else if c.is_ascii_whitespace() {
-				self.write_byte(c);
-			}
-			else {
-				// https://en.wikipedia.org/wiki/Code_page_437
-				self.write_byte(0xfe);
+		self.buff[self.cursor.row][self.cursor.column].1 = Color::default();
+		if self.input_mode {
+			for c in s.bytes() {
+				if c.is_ascii_graphic() {
+					self.write_byte(c);
+				}
+				else if b'\n' == c {
+					self.write_new_line();
+				}
+				else if b'\x08' == c {
+					// backspace
+					self.del_byte();
+				}
+				else if b'\x7b' == c {
+					// del
+					self.suppr_byte();
+				}
+				else if b'\x18' == c {
+					// arrow up
+					if 0 < self.cursor.row {
+						self.cursor.row -= 1;
+					}
+				}
+				else if b'\x19' == c {
+					// arrow down
+					if self.cursor.row < Self::HEIGHT {
+						self.cursor.row += 1;
+					}
+				}
+				else if b'\x1a' == c {
+					// arrow right
+					if self.cursor.column < Self::WIDTH {
+						self.cursor.column += 1;
+					}
+				}
+				else if b'\x1b' == c {
+					// arrow left
+					if 0 < self.cursor.column {
+						self.cursor.column -= 1;
+					}
+				}
+				else if b'\x1e' == c {
+					// scroll up
+					self.shift_upward();
+				}
+				else if b'\x1e' == c {
+					// scroll down
+					self.shift_downward();
+				}
+				else if c.is_ascii_whitespace() {
+					self.write_byte(b' ');
+				}
+				else {
+					// https://en.wikipedia.org/wiki/Code_page_437
+					self.write_byte(0xfe);
+				}
 			}
 		}
+		else {
+			for c in s.bytes() {
+				if c.is_ascii_graphic() {
+					self.write_byte(c);
+				}
+				else if b'\n' == c {
+					self.write_new_line();
+				}
+				else if c.is_ascii_whitespace() {
+					self.write_byte(c);
+				}
+				else {
+					// https://en.wikipedia.org/wiki/Code_page_437
+					self.write_byte(0xfe);
+				}
+			}
+		}
+		self.buff[self.cursor.row][self.cursor.column].1 = Color::Black_on_White;
 		Ok(())
 	}
 }
