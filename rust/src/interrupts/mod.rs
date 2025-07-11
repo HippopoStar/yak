@@ -1,6 +1,5 @@
 
 use lazy_static::lazy_static;
-use spin;
 use crate::arch::x86::structures::idt::{InterruptDescriptorTable, InterruptStackFrame};
 use crate::arch::x86::pic_8259::ChainedPics;
 use crate::keyboard;
@@ -19,8 +18,8 @@ pub fn init_idt() -> () {
 	IDT.load();
 }
 
-pub const PIC_1_OFFSET: u8 = 32;
-pub const PIC_2_OFFSET: u8 = PIC_1_OFFSET + 8;
+const PIC_1_OFFSET: u8 = 32;
+const PIC_2_OFFSET: u8 = PIC_1_OFFSET + 8;
 
 pub static _PICS: spin::Mutex<ChainedPics> = spin::Mutex::new(unsafe { ChainedPics::new(PIC_1_OFFSET, PIC_2_OFFSET) });
 

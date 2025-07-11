@@ -1,5 +1,5 @@
 
-use crate::vga_print;
+use crate::{vga_print, vga_input};
 use crate::arch::x86::instructions::port::Port;
 use core::sync::atomic::{AtomicBool, Ordering};
 use core::fmt;
@@ -143,7 +143,7 @@ impl Keyboard {
 					vga_print!("UNHANDLED SCANCODE {:#x} !", scancode).unwrap();
 				}
 				else if scancode == 14 {
-					crate::vga::_VGA.get_current_screen().del_byte(); // TODO: remove lock -> vga_print(b"\b")
+					vga_input!("\x08").unwrap(); // BackSpace (ASCII 0x08)
 				}
 				else {
 					/*
@@ -159,10 +159,10 @@ impl Keyboard {
 						crate::vga::_VGA.set_display(value as usize);
 					}
 					else if self.shift.load(Ordering::Relaxed) == false {
-						vga_print!("{}", Self::SCANCODES[scancode as usize].character as char).unwrap();
+						vga_input!("{}", Self::SCANCODES[scancode as usize].character as char).unwrap();
 					}
 					else {
-						vga_print!("{}", Self::SCANCODES[scancode as usize].character_uppercase as char).unwrap();
+						vga_input!("{}", Self::SCANCODES[scancode as usize].character_uppercase as char).unwrap();
 						self.shift.store(false, Ordering::Relaxed);
 					}
 				}

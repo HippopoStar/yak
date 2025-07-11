@@ -22,7 +22,7 @@ lazy_static::lazy_static! {
 #[macro_export]
 macro_rules! vga_print {
 	($($arg:tt)*) => {
-		$crate::vga::_print(core::format_args!($($arg)*))
+		$crate::vga::_write($crate::vga::_VGA.get_current_index(), core::format_args!($($arg)*))
 	};
 }
 
@@ -34,17 +34,6 @@ macro_rules! vga_println {
 	($($arg:tt)*) => {
 		$crate::vga_print!("{}\n", core::format_args!($($arg)*))
 	};
-}
-
-/// Prints the given formatted string to the VGA text buffer
-/// through the global `WRITER` instance.
-#[doc(hidden)]
-pub fn _print(args: core::fmt::Arguments) -> core::fmt::Result {
-	let mut result: core::fmt::Result = Err(core::fmt::Error);
-	interrupts::without_interrupts(|| {
-		result = crate::vga::_VGA.get_current_screen().write_fmt(args);
-	});
-	result
 }
 
 // ===== write! =====
@@ -77,6 +66,28 @@ pub fn _write(idx: usize, args: core::fmt::Arguments) -> core::fmt::Result {
 	result
 }
 
+// ===== input! =====
+
+#[macro_export]
+macro_rules! vga_input {
+	($($arg:tt)*) => {
+		$crate::vga::_input(core::format_args!($($arg)*))
+	};
+}
+
+#[doc(hidden)]
+pub fn _input(args: core::fmt::Arguments) -> core::fmt::Result {
+	let mut result: core::fmt::Result = Err(core::fmt::Error);
+	interrupts::without_interrupts(|| {
+		if let Some(mut screen) = crate::vga::_VGA.get_screen(crate::vga::_VGA.get_current_index()) {
+			screen.set_input_mode(true);
+			result = screen.write_fmt(args);
+			screen.set_input_mode(false);
+		}
+	});
+	result
+}
+
 // ===== Color =====
 
 #[allow(dead_code)]
@@ -92,6 +103,14 @@ pub enum Color {
 	Magenta = 5,
 	Yellow = 6,
 	White = 7,
+	Black_on_White = 0x70,
+	Blue_on_White = 0x71,
+	Green_on_White = 0x72,
+	Cyan_on_White = 0x73,
+	Red_on_White = 0x74,
+	Magenta_on_White = 0x75,
+	Yellow_on_White = 0x76,
+	White_on_White = 0x77,
 }
 
 // ===== VGAPorts =====
@@ -144,8 +163,8 @@ impl VGA {
 		}
 	}
 
-	pub fn get_current_screen(&self) -> spin::MutexGuard<Screen> {
-		self.screens[self.display.load(core::sync::atomic::Ordering::Relaxed)].lock()
+	pub fn get_current_index(&self) -> usize {
+		self.display.load(core::sync::atomic::Ordering::Relaxed)
 	}
 
 	pub fn set_display(&self, index: usize) -> () {
