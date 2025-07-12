@@ -196,18 +196,20 @@ impl Screen {
 	// }
 
 	fn shift_upward(&mut self) -> () {
-		let lower_row = &mut [Cell::default(); Screen::WIDTH];
-		self.history.push_upper_row(self.buff.first().unwrap(), lower_row);
+	//	if 0 < (self.history.length - self.history.get_pivot()) {
+			let lower_row = &mut [Cell::default(); Screen::WIDTH];
+			self.history.push_upper_row(self.buff.first().unwrap(), lower_row);
 
-		let mut it = self.buff.iter_mut().peekable();
-		while let Some(above) = it.next() {
-			if let Some(below) = it.peek() {
-				copy_row(above, below);
+			let mut it = self.buff.iter_mut().peekable();
+			while let Some(above) = it.next() {
+				if let Some(below) = it.peek() {
+					copy_row(above, below);
+				}
+				else {
+					copy_row(above, lower_row);
+				}
 			}
-			else {
-				copy_row(above, lower_row);
-			}
-		}
+	//	}
 	}
 
 	fn shift_downward(&mut self) -> () {
@@ -311,7 +313,12 @@ impl Screen {
 		if 0 == self.cursor.column {
 			if 0 == self.cursor.row {
 				// retrieve last row in history buffer
-				self.shift_downward();
+				if 0 < self.history.get_pivot() {
+					self.shift_downward();
+				}
+				else {
+					return
+				}
 			}
 			else {
 				self.cursor.row -= 1;
@@ -354,17 +361,33 @@ impl core::fmt::Write for Screen {
 					if 0 < self.cursor.row {
 						self.cursor.row -= 1;
 					}
+					else {
+					    self.shift_downward();
+					}
 				}
 				else if b'\x19' == c {
 					// arrow down
-					if self.cursor.row < Self::HEIGHT {
+					if self.cursor.row + 1 < Self::HEIGHT {
 						self.cursor.row += 1;
+					}
+					else if 0 < (self.history.length - self.history.get_pivot()) {
+					    self.shift_upward();
 					}
 				}
 				else if b'\x1a' == c {
 					// arrow right
-					if self.cursor.column < Self::WIDTH {
+					if self.cursor.column + 1 < Self::WIDTH {
 						self.cursor.column += 1;
+					}
+					else if self.cursor.row + 1 < Self::HEIGHT {
+						self.cursor.column = 0;
+						self.cursor.row += 1;
+					}
+					else {
+						if 0 < (self.history.length - self.history.get_pivot()) {
+							self.shift_upward();
+							self.cursor.column = 0;
+						}
 					}
 				}
 				else if b'\x1b' == c {
@@ -372,14 +395,24 @@ impl core::fmt::Write for Screen {
 					if 0 < self.cursor.column {
 						self.cursor.column -= 1;
 					}
+					else if 0 < self.cursor.row {
+						self.cursor.row -= 1;
+						self.cursor.column = 79;
+					}
+					else {
+						if 0 < self.history.get_pivot() {
+							self.shift_downward();
+							self.cursor.column = 79;
+						}
+					}
 				}
 				else if b'\x1e' == c {
 					// scroll up
-					self.shift_upward();
+					self.shift_downward();
 				}
 				else if b'\x1f' == c {
 					// scroll down
-					self.shift_downward();
+					self.shift_upward();
 				}
 				else if c.is_ascii_whitespace() {
 					self.write_byte(b' ');
