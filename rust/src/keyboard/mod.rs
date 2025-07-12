@@ -127,10 +127,11 @@ impl Keyboard {
         let _real_scancode: u8 = scancode & 0x7f;
         let _is_pressed: bool = (scancode & 0x80) == 0;
 
+        //vga_print!("SCANCODE {:#x} ", scancode).unwrap();
         if self.extended.load(Ordering::Relaxed) == false {
             if scancode == 0xE0 {
                 self.extended.store(true, Ordering::Relaxed);
-                vga_print!("EXTENDED-BYTE ").unwrap();
+                //vga_print!("EXTENDED-BYTE ").unwrap();
             }
             else if scancode == 42 || scancode == 56 {
                 self.shift.store(true, Ordering::Relaxed);
@@ -170,10 +171,33 @@ impl Keyboard {
         }
         else {
             if (scancode & 0x80) == 0 {
-                vga_print!("scancode {:#x} pressed", scancode).unwrap();
+                if scancode == 0x48 { // arrow up
+                    vga_input!("{}", b'\x18' as char).unwrap();
+                }
+                else if scancode == 0x49 { // pg up
+                    vga_input!("{}", b'\x1e' as char).unwrap();
+                }
+                else if scancode == 0x4b { // arrow left
+                    vga_input!("{}", b'\x1b' as char).unwrap();
+                }
+                else if scancode == 0x4d { // arrow right
+                    vga_input!("{}", b'\x1a' as char).unwrap();
+                }
+                else if scancode == 0x50 { // arrow down
+                    vga_input!("{}", b'\x19' as char).unwrap();
+                }
+                else if scancode == 0x51 { // pg down
+                    vga_input!("{}", b'\x1f' as char).unwrap();
+                }
+                else if scancode == 0x53 { // del
+                    vga_input!("{}", b'\x7f' as char).unwrap();
+                }
+                else {
+                    vga_print!("EXTENDED scancode {:#x} pressed", scancode).unwrap();
+                }
             }
             else {
-                vga_print!("scancode {:#x} released", scancode).unwrap();
+                //vga_print!("Extended scancode {:#x} released", scancode).unwrap();
             }
             self.extended.store(false, Ordering::Relaxed);
         }
