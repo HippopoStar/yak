@@ -313,7 +313,12 @@ impl Screen {
 		if 0 == self.cursor.column {
 			if 0 == self.cursor.row {
 				// retrieve last row in history buffer
-				self.shift_downward();
+				if 0 < self.history.get_pivot() {
+					self.shift_downward();
+				}
+				else {
+					return
+				}
 			}
 			else {
 				self.cursor.row -= 1;
