@@ -321,7 +321,7 @@ impl Screen {
 		// multiple '\0' should be considered as 1
 		// no 'do {} while ();' loop in Rust
 		self.cursor.column -= 1;
-		while 0 < self.cursor.column && Cell::default() == self.buff[self.cursor.row][self.cursor.column - 1] {
+		while 0 < self.cursor.column && &Cell::default() == &self.buff[self.cursor.row][self.cursor.column - 1] {
 			self.cursor.column -= 1;
 		}
 		self.shift_leftward(self.cursor.row, self.cursor.column);
@@ -345,7 +345,7 @@ impl core::fmt::Write for Screen {
 					// backspace
 					self.del_byte();
 				}
-				else if b'\x7b' == c {
+				else if b'\x7f' == c {
 					// del
 					self.suppr_byte();
 				}
@@ -377,7 +377,7 @@ impl core::fmt::Write for Screen {
 					// scroll up
 					self.shift_upward();
 				}
-				else if b'\x1e' == c {
+				else if b'\x1f' == c {
 					// scroll down
 					self.shift_downward();
 				}
