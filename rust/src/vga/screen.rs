@@ -354,6 +354,9 @@ impl core::fmt::Write for Screen {
 					if 0 < self.cursor.row {
 						self.cursor.row -= 1;
 					}
+					else {
+					    self.shift_downward();
+					}
 				}
 				else if b'\x19' == c {
 					// arrow down
