@@ -147,15 +147,11 @@ impl Keyboard {
                     vga_input!("\x08").unwrap(); // BackSpace (ASCII 0x08)
                 }
                 else {
-                    /*
-                    if Self::SCANCODES[scancode as usize].character.is_ascii_digit() {
-                        let value = Self::SCANCODES[scancode as usize].character - b'1';
-                        if 0 <= value && value < 8 {
-                            crate::vga::_VGA.set_display(value as usize);
-                        }
+                    if self.ctrl.load(Ordering::Relaxed) == true && self.shift.load(Ordering::Relaxed) == false && scancode == 25 {
+                        vga_print!("CTRL + p pressed !").unwrap();
+                        self.ctrl.store(false, Ordering::Relaxed);
                     }
-                    */
-                    if 59 <= scancode && scancode <= 66 {
+                    else if 59 <= scancode && scancode <= 66 {
                         let value = scancode - 59;
                         crate::vga::_VGA.set_display(value as usize);
                     }
