@@ -10,7 +10,7 @@ RUN apt-get update && apt-get -y install \
 	qemu-system-x86 \
 	xorriso
 
-RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain nightly --component rust-src
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain nightly-2025-07-01 --component rust-src
 
 # RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 #
