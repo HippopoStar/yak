@@ -441,6 +441,7 @@ impl Screen {
 		}
 		else if self.cursor.row + 1 < Self::HEIGHT {
 			self.cursor.row += 1;
+			self.cursor.column = 0;
 		}
 		else if 0 < self.history.get_tail_length() {
 			self.shift_upward();
