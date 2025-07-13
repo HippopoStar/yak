@@ -88,6 +88,14 @@ pub fn _input(args: core::fmt::Arguments) -> core::fmt::Result {
 	result
 }
 
+pub fn print_rainbow_42() -> () {
+	interrupts::without_interrupts(|| {
+		if let Some(mut screen) = crate::vga::_VGA.get_screen(crate::vga::_VGA.get_current_index()) {
+			screen.print_rainbow_42();
+		}
+	});
+}
+
 // ===== Color =====
 
 #[allow(dead_code)]

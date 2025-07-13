@@ -175,7 +175,7 @@ impl<const N: usize> History<N> {
 				self.pivot -= 1;
 				copy_row(&mut self.circular_buffer[self.head % N], &[Cell::default(); Screen::WIDTH]);
 				above_end_of_line = core::mem::replace(&mut self.circular_buffer[self.head % N][0], above_end_of_line);
-				self.head = (self.head + N - 1) % N;
+				self.head = (self.head + 1) % N;
 				// according to the 2 above lines, "above_end_of_line" should now be Cell::default()
 			}
 		}
@@ -234,6 +234,24 @@ impl Screen {
 			Color::Magenta => Color::Black,
 			_ => self.color,
 		}
+	}
+
+	pub fn print_rainbow_42(&mut self) -> () {
+		const STR_42: &'static str = "
+        :::      ::::::::
+      :+:      :+:    :+:
+    +:+ +:+         +:+
+  +#+  +:+       +#+
++#+#+#+#+#+   +#+
+     #+#    #+#
+    ###   ########.fr";
+
+		use core::fmt::Write;
+		STR_42.lines().for_each(|l| {
+			self.write_str(l);
+			self.write_str("\n");
+			self.set_next_rainbow_color();
+		});
 	}
 
 	fn clear(&mut self) -> () {

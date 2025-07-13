@@ -148,7 +148,7 @@ impl Keyboard {
                 }
                 else {
                     if self.ctrl.load(Ordering::Relaxed) == true && self.shift.load(Ordering::Relaxed) == false && scancode == 25 {
-                        vga_print!("CTRL + p pressed !").unwrap();
+                        crate::vga::print_rainbow_42();
                         self.ctrl.store(false, Ordering::Relaxed);
                     }
                     else if 59 <= scancode && scancode <= 66 {
