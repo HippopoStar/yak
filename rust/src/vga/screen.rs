@@ -101,8 +101,12 @@ impl<const N: usize> History<N> {
 		}
 	}
 
-	fn get_pivot(&self) -> usize {
+	fn get_head_length(&self) -> usize {
 		self.pivot
+	}
+
+	fn get_tail_length(&self) -> usize {
+		self.length - self.pivot
 	}
 
 	// TODO: does not need 'volatile' copy used by 'copy_row'
@@ -196,7 +200,7 @@ impl Screen {
 	// }
 
 	fn shift_upward(&mut self) -> () {
-	//	if 0 < (self.history.length - self.history.get_pivot()) {
+	//	if 0 < self.history.get_tail_length() {
 			let lower_row = &mut [Cell::default(); Screen::WIDTH];
 			self.history.push_upper_row(self.buff.first().unwrap(), lower_row);
 
@@ -213,7 +217,7 @@ impl Screen {
 	}
 
 	fn shift_downward(&mut self) -> () {
-		if 0 < self.history.get_pivot() {
+		if 0 < self.history.get_head_length() {
 			let upper_row = &mut [Cell::default(); Screen::WIDTH];
 			self.history.pop_upper_row(upper_row, self.buff.last().unwrap());
 
@@ -313,7 +317,7 @@ impl Screen {
 		if 0 == self.cursor.column {
 			if 0 == self.cursor.row {
 				// retrieve last row in history buffer
-				if 0 < self.history.get_pivot() {
+				if 0 < self.history.get_head_length() {
 					self.shift_downward();
 				}
 				else {
@@ -332,6 +336,52 @@ impl Screen {
 			self.cursor.column -= 1;
 		}
 		self.shift_leftward(self.cursor.row, self.cursor.column);
+	}
+
+	fn move_cursor_up(&mut self) -> () {
+		if 0 < self.cursor.row {
+			self.cursor.row -= 1;
+		}
+		else if 0 < self.history.get_head_length() {
+			self.shift_downward();
+		}
+	}
+
+	fn move_cursor_down(&mut self) -> () {
+		if self.cursor.row + 1 < Self::HEIGHT {
+			self.cursor.row += 1;
+		}
+		else if 0 < self.history.get_tail_length() {
+			self.shift_upward();
+		}
+	}
+
+	fn move_cursor_right(&mut self) -> () {
+		if self.cursor.column + 1 < Self::WIDTH {
+			self.cursor.column += 1;
+		}
+		else if self.cursor.row + 1 < Self::HEIGHT {
+			self.cursor.row += 1;
+			self.cursor.column = 0;
+		}
+		else if 0 < self.history.get_tail_length() {
+			self.shift_upward();
+			self.cursor.column = 0;
+		}
+	}
+
+	fn move_cursor_left(&mut self) -> () {
+		if 0 < self.cursor.column {
+			self.cursor.column -= 1;
+		}
+		else if 0 < self.cursor.row {
+			self.cursor.row -= 1;
+			self.cursor.column = Self::WIDTH - 1;
+		}
+		else if 0 < self.history.get_head_length() {
+			self.shift_downward();
+			self.cursor.column = Self::WIDTH - 1;
+		}
 	}
 }
 
@@ -358,61 +408,31 @@ impl core::fmt::Write for Screen {
 				}
 				else if b'\x18' == c {
 					// arrow up
-					if 0 < self.cursor.row {
-						self.cursor.row -= 1;
-					}
-					else {
-					    self.shift_downward();
-					}
+					self.move_cursor_up();
 				}
 				else if b'\x19' == c {
 					// arrow down
-					if self.cursor.row + 1 < Self::HEIGHT {
-						self.cursor.row += 1;
-					}
-					else if 0 < (self.history.length - self.history.get_pivot()) {
-					    self.shift_upward();
-					}
+					self.move_cursor_down();
 				}
 				else if b'\x1a' == c {
 					// arrow right
-					if self.cursor.column + 1 < Self::WIDTH {
-						self.cursor.column += 1;
-					}
-					else if self.cursor.row + 1 < Self::HEIGHT {
-						self.cursor.column = 0;
-						self.cursor.row += 1;
-					}
-					else {
-						if 0 < (self.history.length - self.history.get_pivot()) {
-							self.shift_upward();
-							self.cursor.column = 0;
-						}
-					}
+					self.move_cursor_right();
 				}
 				else if b'\x1b' == c {
 					// arrow left
-					if 0 < self.cursor.column {
-						self.cursor.column -= 1;
-					}
-					else if 0 < self.cursor.row {
-						self.cursor.row -= 1;
-						self.cursor.column = 79;
-					}
-					else {
-						if 0 < self.history.get_pivot() {
-							self.shift_downward();
-							self.cursor.column = 79;
-						}
-					}
+					self.move_cursor_left();
 				}
 				else if b'\x1e' == c {
 					// scroll up
-					self.shift_downward();
+					if 0 < self.history.get_head_length() {
+						self.shift_downward();
+					}
 				}
 				else if b'\x1f' == c {
 					// scroll down
-					self.shift_upward();
+					if 0 < self.history.get_tail_length() {
+						self.shift_upward();
+					}
 				}
 				else if c.is_ascii_whitespace() {
 					self.write_byte(b' ');
