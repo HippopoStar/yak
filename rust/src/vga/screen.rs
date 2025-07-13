@@ -1,6 +1,14 @@
 
 use super::Color;
 
+const HISTORY_CAPACITY: usize = 5;
+
+/// Invariants
+/// 0 <= self.cursor.row < Self::HEIGHT
+/// 0 <= self.cursor.column < Self::WIDTH
+/// for each row, &self.buff[self.cursor.row][0..self.cursor.column] does not contain any b'\0'
+/// last column of the last row (either in self.buff or in self.history) == b'\0'
+
 // ===== Cell =====
 
 #[derive(Default, Debug, Copy, Clone, PartialEq, Eq)]
@@ -11,6 +19,10 @@ impl Cell {
 	// Traits and Generics -> Fully Qualified Method Calls
 	fn volatile_copy(dst: &mut Self, src: &Self) -> () {
 		unsafe { (dst as *mut Self).write_volatile((src as *const Self).read_volatile()) };
+	}
+
+	fn new_from(other: &Cell) -> Self {
+		Self(other.0, other.1) // volatile_copy?
 	}
 }
 
@@ -91,6 +103,14 @@ struct History<const N: usize> {
 	circular_buffer: [[Cell; Screen::WIDTH]; N],
 }
 
+// | oldest up -- (head)
+// |
+// | newest up
+// | newest down -- (pivot)
+// |
+// | oldest down
+// -- (length)
+
 impl<const N: usize> History<N> {
 	fn new() -> Self {
 		Self {
@@ -137,6 +157,29 @@ impl<const N: usize> History<N> {
 			copy_row(source_row, lower_row);
 		}
 	}
+
+	fn shift_rightward(&mut self, mut above_end_of_line: Cell) {
+		let mut idx = self.pivot;
+		while b'\0' != above_end_of_line.0 && idx < self.length {
+			right_shift_row(&mut self.circular_buffer[(self.head + idx) % N], 0);
+			above_end_of_line = core::mem::replace(&mut self.circular_buffer[(self.head + idx) % N][0], above_end_of_line);
+			idx += 1;
+		}
+		if b'\0' != above_end_of_line.0 {
+			if self.length < N {
+				copy_row(&mut self.circular_buffer[(self.head + self.length) % N], &[Cell::default(); Screen::WIDTH]);
+				above_end_of_line = core::mem::replace(&mut self.circular_buffer[(self.head + self.length) % N][0], above_end_of_line);
+				self.length += 1;
+			}
+			else if 0 < self.pivot {
+				self.pivot -= 1;
+				copy_row(&mut self.circular_buffer[self.head % N], &[Cell::default(); Screen::WIDTH]);
+				above_end_of_line = core::mem::replace(&mut self.circular_buffer[self.head % N][0], above_end_of_line);
+				self.head = (self.head + N - 1) % N;
+				// according to the 2 above lines, "above_end_of_line" should now be Cell::default()
+			}
+		}
+	}
 }
 
 // ===== Screen =====
@@ -145,7 +188,7 @@ impl<const N: usize> History<N> {
 pub(super) struct Screen {
 	cursor: Cursor,
 	color: Color,
-	history: History<5>,
+	history: History<HISTORY_CAPACITY>,
 	buff: &'static mut [[Cell; Self::WIDTH]; Self::HEIGHT],
 	input_mode: bool,
 }
@@ -157,7 +200,7 @@ impl Screen {
 	pub const SIZE: usize = Self::LENGTH * core::mem::size_of::<Cell>();
 
 	pub fn new(addr: usize) -> Self {
-		Self {
+		let mut instance = Self {
 			cursor: Cursor {
 				row: 0,
 				column: 0,
@@ -166,7 +209,9 @@ impl Screen {
 			history: History::new(),
 			buff: unsafe { &mut (*(addr as *mut _)) },
 			input_mode: false,
-		}
+		};
+		instance.clear();
+		instance
 	}
 
 	pub fn set_color(&mut self, color: Color) -> () {
@@ -191,13 +236,16 @@ impl Screen {
 		}
 	}
 
-	// pub fn copy_from(&mut self, other: &Self) -> () {
-	// 	self.cursor = other.cursor;
-	// 	self.color = other.color;
-	// 	for row in 0..Self::HEIGHT {
-	// 		copy_row(&mut self.buff[row], &other.buff[row]);
-	// 	}
-	// }
+	fn clear(&mut self) -> () {
+		let default_cell = &Cell::default();
+		let mut it_rows = self.buff.iter_mut();
+		for row in it_rows {
+			let mut it_columns = row.iter_mut();
+			for column in it_columns {
+				Cell::volatile_copy(column, default_cell);
+			}
+		}
+	}
 
 	fn shift_upward(&mut self) -> () {
 	//	if 0 < self.history.get_tail_length() {
@@ -244,6 +292,7 @@ impl Screen {
 	}
 
 	fn write_byte(&mut self, c: u8) -> () {
+		self.shift_rightward(self.cursor.row, self.cursor.column);
 		Cell::volatile_copy(&mut self.buff[self.cursor.row][self.cursor.column], &Cell(c, self.color));
 		self.cursor.column += 1;
 		if Self::WIDTH == self.cursor.column {
@@ -254,58 +303,74 @@ impl Screen {
 	// TODO: detect a '\n' and act accordingly
 	// Collections -> Vec<T> -> Splitting
 	// https://doc.rust-lang.org/stable/core/primitive.slice.html#method.chunks_mut
-	fn shift_leftward(&mut self, row: usize, mut column: usize) -> () {
-		let mut it_rows = self.buff.iter_mut().skip(row).peekable();
-		while let Some(above) = it_rows.next() {
-			let mut it_columns = above.iter_mut().skip(column).peekable();
-			column = 0;
-			while let Some(current) = it_columns.next() {
-				let mut next: &Cell = &Cell::default();
-				// Same row, rightward character
-				if let Some(rightward) = it_columns.peek() {
-					next = rightward;
-				}
-				// Underneath row, first character
-				else if let Some(below) = it_rows.peek() {
-					next = below.first().unwrap();
-				}
-				// References -> Working with References -> Comparing References
-				if current != next {
-					Cell::volatile_copy(current, next);
-				}
-			}
+	fn shift_leftward(&mut self, mut row: usize, column: usize) -> () {
+		// TODO: fix invariants
+		let mut current_end_of_line = Cell::new_from(&self.buff[row][Self::WIDTH - 1]);
+		left_shift_row(&mut self.buff[row], column);
+		while b'\0' != current_end_of_line.0 && row + 1 < Self::HEIGHT {
+			let below_start_of_line = Cell::new_from(&self.buff[row + 1][0]);
+			Cell::volatile_copy(&mut self.buff[row][Self::WIDTH - 1], &below_start_of_line);
+			row += 1;
+			Cell::volatile_copy(&mut current_end_of_line, &self.buff[row][Self::WIDTH - 1]);
+			left_shift_row(&mut self.buff[row], column);
 		}
+		if b'\0' == current_end_of_line.0 {
+			Cell::volatile_copy(&mut self.buff[row][Self::WIDTH - 1], &Cell::default());
+		}
+		else {
+			// TODO: fix this
+		}
+
+
+
+		// let mut it_rows = self.buff.iter_mut().skip(row).peekable();
+		// while let Some(above) = it_rows.next() {
+		// 	let mut it_columns = above.iter_mut().skip(column).peekable();
+		// 	column = 0;
+		// 	while let Some(current) = it_columns.next() {
+		// 		let mut next: &Cell = &Cell::default();
+		// 		// Same row, rightward character
+		// 		if let Some(rightward) = it_columns.peek() {
+		// 			next = rightward;
+		// 		}
+		// 		// Underneath row, first character
+		// 		else if let Some(below) = it_rows.peek() {
+		// 			next = below.first().unwrap();
+		// 		}
+		// 		// References -> Working with References -> Comparing References
+		// 		if current != next {
+		// 			Cell::volatile_copy(current, next);
+		// 		}
+		// 	}
+		// }
 	}
 
 	// Iterators -> Implementing Your Own Iterators
 	// .rev().take(Self::HEIGHT - row).peekable()
 	// !(b'\0' == leftward.0)
-	fn shift_rightward(&mut self, row: usize, mut column: usize) -> () {
-		let mut last_column_above_row = Cell::default();
-		let mut it_rows = self.buff.iter_mut().skip(row).peekable();
-		while let Some(above) = it_rows.next() {
-			let mut last_column_current_row = Cell::default();
-			let mut it_columns = above.iter_mut().rev().take(Self::WIDTH - column).peekable();
-			column = 0;
-			if let Some(last_column) = it_columns.peek() {
-				Cell::volatile_copy(&mut last_column_current_row, last_column);
+	fn shift_rightward(&mut self, mut row: usize, column: usize) -> () {
+		right_shift_row(&mut self.buff[row], column);
+		let mut above_end_of_line = Cell::new_from(&self.buff[row][column]);
+		// Cell::volatile_copy(&mut self.buff[row][column], Cell::default());
+		while b'\0' != above_end_of_line.0 && row + 1 < Self::HEIGHT {
+			row += 1;
+			right_shift_row(&mut self.buff[row], 0);
+			above_end_of_line = core::mem::replace(&mut self.buff[row][0], above_end_of_line);
+		}
+		if b'\0' != above_end_of_line.0 {
+			if 0 < HISTORY_CAPACITY - self.history.get_tail_length() {
+				self.history.shift_rightward(above_end_of_line);
 			}
-			while let Some(current) = it_columns.next() {
-				if let Some(leftward) = it_columns.peek() {
-					Cell::volatile_copy(current, leftward);
+			else {
+				self.shift_upward();
+				if 0 < self.cursor.row {
+					self.cursor.row -= 1;
 				}
 				else {
-					Cell::volatile_copy(current, &last_column_above_row);
+					self.left_align_cursor();
 				}
+				self.history.shift_rightward(above_end_of_line);
 			}
-			last_column_above_row = last_column_current_row;
-		}
-		if &Cell::default() != self.buff.last().unwrap().last().unwrap() {
-			self.shift_upward(); // TODO: ensure scroll to bottom first
-			if 0 < self.cursor.row {
-				self.cursor.row -= 1;
-			}
-			Cell::volatile_copy(self.buff.last_mut().unwrap().first_mut().unwrap(), &last_column_above_row);
 		}
 	}
 
@@ -314,28 +379,14 @@ impl Screen {
 	}
 
 	fn del_byte(&mut self) -> () {
-		if 0 == self.cursor.column {
-			if 0 == self.cursor.row {
-				// retrieve last row in history buffer
-				if 0 < self.history.get_head_length() {
-					self.shift_downward();
-				}
-				else {
-					return
-				}
-			}
-			else {
-				self.cursor.row -= 1;
-			}
-			self.cursor.column = Self::WIDTH;
-		}
-		// multiple '\0' should be considered as 1
-		// no 'do {} while ();' loop in Rust
-		self.cursor.column -= 1;
-		while 0 < self.cursor.column && &Cell::default() == &self.buff[self.cursor.row][self.cursor.column - 1] {
+		self.move_cursor_left();
+		self.shift_leftward(self.cursor.row, self.cursor.column);
+	}
+
+	fn left_align_cursor(&mut self) -> () {
+		while 0 < self.cursor.column && b'\0' == self.buff[self.cursor.row][self.cursor.column - 1].0 {
 			self.cursor.column -= 1;
 		}
-		self.shift_leftward(self.cursor.row, self.cursor.column);
 	}
 
 	fn move_cursor_up(&mut self) -> () {
@@ -345,6 +396,7 @@ impl Screen {
 		else if 0 < self.history.get_head_length() {
 			self.shift_downward();
 		}
+		self.left_align_cursor();
 	}
 
 	fn move_cursor_down(&mut self) -> () {
@@ -354,20 +406,28 @@ impl Screen {
 		else if 0 < self.history.get_tail_length() {
 			self.shift_upward();
 		}
+		self.left_align_cursor();
 	}
 
 	fn move_cursor_right(&mut self) -> () {
 		if self.cursor.column + 1 < Self::WIDTH {
-			self.cursor.column += 1;
+			if b'\0' == self.buff[self.cursor.row][self.cursor.column].0 {
+				if self.cursor.row + 1 < Self::HEIGHT || 0 < self.history.get_tail_length() {
+					self.cursor.column = 0;
+					self.move_cursor_down();
+				}
+			}
+			else {
+				self.cursor.column += 1;
+			}
 		}
 		else if self.cursor.row + 1 < Self::HEIGHT {
 			self.cursor.row += 1;
-			self.cursor.column = 0;
 		}
 		else if 0 < self.history.get_tail_length() {
 			self.shift_upward();
-			self.cursor.column = 0;
 		}
+		self.left_align_cursor();
 	}
 
 	fn move_cursor_left(&mut self) -> () {
@@ -382,6 +442,7 @@ impl Screen {
 			self.shift_downward();
 			self.cursor.column = Self::WIDTH - 1;
 		}
+		self.left_align_cursor();
 	}
 }
 
@@ -426,12 +487,20 @@ impl core::fmt::Write for Screen {
 					// scroll up
 					if 0 < self.history.get_head_length() {
 						self.shift_downward();
+						if self.cursor.row + 1 < Self::HEIGHT {
+							self.cursor.row += 1;
+						}
+						self.left_align_cursor();
 					}
 				}
 				else if b'\x1f' == c {
 					// scroll down
 					if 0 < self.history.get_tail_length() {
 						self.shift_upward();
+						if 0 < self.cursor.row {
+							self.cursor.row -= 1;
+						}
+						self.left_align_cursor();
 					}
 				}
 				else if c.is_ascii_whitespace() {
@@ -439,7 +508,7 @@ impl core::fmt::Write for Screen {
 				}
 				else {
 					// https://en.wikipedia.org/wiki/Code_page_437
-					self.write_byte(0xfe);
+					self.write_byte(b'\xfe');
 				}
 			}
 		}
@@ -456,7 +525,7 @@ impl core::fmt::Write for Screen {
 				}
 				else {
 					// https://en.wikipedia.org/wiki/Code_page_437
-					self.write_byte(0xfe);
+					self.write_byte(b'\xfe');
 				}
 			}
 		}
