@@ -21,9 +21,11 @@ section .text
 bits 32
 _start:
 	mov esp, stack_top
+	push eax;
+	push ebx;
+	push 42;
 	call put_str                           ; Call Procedure
 	mov dword [0xb8f9c], 0x00320034        ; Print '42' to screen (bottom right)
-	push 42;
 	call rust_main
 	hlt                                    ; Halt
 
