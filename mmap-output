@@ -1,0 +1,9 @@
+mmap type (should be 6): 6
+mmap size: 160
+mmap entries number 6
+<addr : 0x0 length: 654336 type: 1 reserved 0>
+<addr : 0x9fc00 length: 1024 type: 2 reserved 0>
+<addr : 0xf0000 length: 65536 type: 2 reserved 0>
+<addr : 0x100000 length: 133038080 type: 1 reserved 0>
+<addr : 0x7fe0000 length: 131072 type: 2 reserved 0>
+<addr : 0xfffc0000 length: 262144 type: 2 reserved 0>
