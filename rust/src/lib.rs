@@ -73,9 +73,33 @@ pub struct MmapInfo {
     entry_version: u32,
 }
 
+#[derive(Default, Copy, Clone)]
+pub struct ElfSections {
+    tag_type :u32,
+    tag_size :u32,
+    num :u32, // number of section headers
+    entsize :u32, // size of each section header
+    shndx :u32, // index of section name string table
+}
+
+#[derive(Default, Copy, Clone)]
+pub struct ElfSectionHeader {
+    sh_name: u32,      // Offset into section header string table
+    sh_type: u32,      // Section type
+    sh_flags: u32,     // Section flags
+    sh_addr: u32,      // Virtual address in memory
+    sh_offset: u32,    // Offset in file/image
+    sh_size: u32,      // Size of section in bytes
+    sh_link: u32,      // Link to another section
+    sh_info: u32,      // Extra info
+    sh_addralign: u32, // Alignment
+    sh_entsize: u32,   // Size of entries if section holds a table
+}
+
 #[derive(Default)]
 pub struct BootInfo {
     mmapInfo :MmapInfo,
+    elfSections :ElfSections,
 }
 
 pub fn parse_bootinfo(bootinfo_addr :u32, magic: u32) {
@@ -91,24 +115,47 @@ pub fn parse_bootinfo(bootinfo_addr :u32, magic: u32) {
 	vga_println!("bootinfo size {}", bootinfoHeader.total_size).unwrap();
 	vga_println!("tagHeader type {} tagHeader size {}", tagHeader.tag_type, tagHeader.tag_size).unwrap();
     while tagHeader.tag_type != 0 && tagHeader.tag_size != 8 {
-        if tagHeader.tag_type == 6 {
+        if tagHeader.tag_type == 6 { // memory map
             bootInfo.mmapInfo = unsafe {*(tagHeaderAddress as *const MmapInfo)};
             vga_println!("mmap type (should be 6): {}", bootInfo.mmapInfo.tag_type).unwrap();
             vga_println!("mmap size: {}", bootInfo.mmapInfo.tag_size).unwrap();
-            vga_println!("mmap entry_size (should be 24): {}", bootInfo.mmapInfo.entry_size).unwrap();
             if bootInfo.mmapInfo.entry_size != 24 {
                 panic!("Can't handle mmap entries != 24: {}", bootInfo.mmapInfo.entry_size);
             }
-            vga_println!("mmap entry_version (should be 0): {}", bootInfo.mmapInfo.entry_version).unwrap();
             let entries_number = (bootInfo.mmapInfo.tag_size as usize - core::mem::size_of::<MmapInfo>()) / 24;
             vga_println!("mmap entries number {}", entries_number).unwrap();
             let mut entry_address = tagHeaderAddress + core::mem::size_of::<MmapInfo>() as u32;
             for index in 0..entries_number {
-                entry_address += (index * core::mem::size_of::<MmapEntry>()) as u32;
+                if index != 0 {
+                    entry_address += core::mem::size_of::<MmapEntry>() as u32;
+                }
                 let entry = unsafe {& (*(entry_address as *const MmapEntry))};
                 vga_println!("<addr : {:#x} length: {} type: {} reserved {}>", entry.base_addr, entry.length, entry.entryType, entry.reserved).unwrap();
             }
 
+        }
+        else if tagHeader.tag_type == 9 { // elf
+            bootInfo.elfSections = unsafe {*(tagHeaderAddress as *const ElfSections)};
+            vga_println!("elf sections type (should be 9): {}", bootInfo.elfSections.tag_type).unwrap();
+            vga_println!("elf size: {}", bootInfo.elfSections.tag_size).unwrap();
+            vga_println!("elf num: {}", bootInfo.elfSections.num).unwrap();
+            vga_println!("elf entsize: {}", bootInfo.elfSections.entsize).unwrap();
+            if bootInfo.elfSections.entsize != 40 {
+                panic!("Can't handle elf sections != 40: {}", bootInfo.elfSections.entsize);
+            }
+            vga_println!("elf shndx: {} {:#x}", bootInfo.elfSections.shndx, bootInfo.elfSections.shndx).unwrap();
+            let mut section_address = tagHeaderAddress + core::mem::size_of::<ElfSections>() as u32;
+            for index in 0..bootInfo.elfSections.num {
+                if index != 0 {
+                    section_address += bootInfo.elfSections.entsize as u32;
+                }
+                let section = unsafe {& (*(section_address as *const ElfSectionHeader))};
+                if index < 7 {
+                vga_println!("section {}  sh_name: {} sh_type {} sh_flags {:#b}", index, section.sh_name, section.sh_type, section.sh_flags).unwrap();
+                vga_println!("  sh_addr: {:#x} sh_offset: {} sh_size {} sh_link {}", section.sh_addr, section.sh_offset, section.sh_size, section.sh_link).unwrap();
+                vga_println!("  sh_info: {} sh_addralign {} sh_entsize {}", section.sh_info, section.sh_addralign, section.sh_entsize).unwrap();
+                }
+            }
         }
         if tagHeader.tag_size % 8 != 0 {
             tagHeaderAddress += ((tagHeader.tag_size + 8) / 8) * 8;
@@ -117,7 +164,7 @@ pub fn parse_bootinfo(bootinfo_addr :u32, magic: u32) {
             tagHeaderAddress += tagHeader.tag_size;
         }
         tagHeader = unsafe {& (*(tagHeaderAddress as *const TagHeader))};
-//	    vga_println!("tagHeader type {} tagHeader size {}", tagHeader.tag_type, tagHeader.tag_size).unwrap();
+	    //vga_println!("tagHeader type {} tagHeader size {}", tagHeader.tag_type, tagHeader.tag_size).unwrap();
     }
 }
 
