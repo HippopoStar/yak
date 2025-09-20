@@ -35,8 +35,8 @@ _EOF
 
 ## Docker
 ```
-docker image build --tag debian:rust ./docker_image_build_context
-docker run --rm -it -v $(pwd):/yak debian:rust
+docker image build --tag debian:rust-nightly-2025-07-01 ./docker_image_build_context
+docker run --rm -it -v $(pwd):/yak debian:rust-nightly-2025-07-01
 sudo chown -R $(id -u):$(id -g) $(pwd)
 ```
 
