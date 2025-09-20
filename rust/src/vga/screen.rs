@@ -1,7 +1,7 @@
 
 use super::Color;
 
-const HISTORY_CAPACITY: usize = 5;
+const HISTORY_CAPACITY: usize = 20;
 
 /// Invariants
 /// 0 <= self.cursor.row < Self::HEIGHT

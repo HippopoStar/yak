@@ -41,6 +41,6 @@ put_str:                                   ; -> Max string length = 80x25 bytes 
 
 section .bss
 stack_bottom:
-	resb 4096*4
+	resb 4096*16
 stack_top:
 
