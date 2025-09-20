@@ -34,7 +34,7 @@ $(NAME): $(ASM_OBJ)
 	ranlib $@
 
 $(ASM_OBJ_DIR)/%.o: $(ASM_SRC_DIR)/%.s | $(ASM_OBJ_DIR)
-	nasm -o $@ -Wall -Werror $(NASM_OPT) $<
+	nasm -o $@ -Wall -Werror -w-reloc-abs-dword -w-reloc-rel-dword $(NASM_OPT) $<
 
 $(ASM_OBJ_DIR):
 	mkdir $(ASM_OBJ_DIR)
