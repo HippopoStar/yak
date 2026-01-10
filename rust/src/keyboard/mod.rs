@@ -1,6 +1,6 @@
 
 use crate::{vga_print, vga_input};
-use crate::arch::x86::instructions::port::Port;
+use crate::arch::x86::instructions::{interrupts, port::Port};
 use core::sync::atomic::{AtomicBool, Ordering};
 use core::fmt;
 
@@ -22,6 +22,45 @@ impl fmt::Display for Key {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", self.character as char)
     }
+}
+use core::arch::asm;
+
+pub fn halt() {
+    let mut port = Port::new(0x604);
+
+    unsafe {
+        asm!("sti", options(preserves_flags, nostack));
+        port.write(0x2000 as u16);
+    };
+}
+
+pub fn reboot() {
+    let mut kbinterface_port: Port<u16> = Port::new(0x64); //kbinterface
+    let mut kbio_port: Port<u16> = Port::new(0x60);
+    /* keyboard interface IO port: data and control
+   READ:   status port
+   WRITE:  control register */
+    let mut tmp:u16 = 0x2;
+
+    interrupts::without_interrupts(|| {
+        while tmp & 0x2 != 0 {
+            unsafe { tmp = kbinterface_port.read() };
+            if tmp & 1 == 1 {
+                unsafe { tmp |= kbio_port.read() };
+            }
+        }
+        unsafe { kbinterface_port.write(0xFE) };
+    });
+}
+
+pub fn clear() {
+    interrupts::without_interrupts(|| {
+        crate::vga::_VGA.clear_display();
+    });
+}
+
+pub fn dump_kernel_stack() {
+
 }
 
 impl Keyboard {
@@ -139,8 +178,17 @@ impl Keyboard {
             else if scancode == 29 {
                 self.ctrl.store(true, Ordering::Relaxed);
             }
-            else if (scancode & 0x80) == 0 {
-                if scancode > 84 {
+            else if _is_pressed == true {
+                if _real_scancode == 0x44 { // F10
+                    clear();
+                }
+                else if _real_scancode == 0x57 { // F11
+                    reboot();
+                }
+                else if _real_scancode == 0x58 { // F12
+                    halt();
+                }
+                else if scancode > 84 {
                     vga_print!("UNHANDLED SCANCODE {:#x} !", scancode).unwrap();
                 }
                 else if scancode == 14 {

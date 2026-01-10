@@ -131,6 +131,13 @@ impl<const N: usize> History<N> {
 
 	// TODO: does not need 'volatile' copy used by 'copy_row'
 
+    // TODO: need to clear history
+    fn clear(&mut self) -> () {
+        self.length = 0;
+        self.head = 0;
+        self.pivot = 0;
+    }
+
 	fn push_upper_row(&mut self, upper_row: &[Cell; Screen::WIDTH], lower_row: &mut [Cell; Screen::WIDTH]) -> () {
 		if 0 < N {
 			let target_row: &mut [Cell; Screen::WIDTH] = &mut self.circular_buffer[(self.head + self.pivot) % N];
@@ -254,7 +261,7 @@ impl Screen {
 		});
 	}
 
-	fn clear(&mut self) -> () {
+	pub fn clear(&mut self) -> () {
 		let default_cell = &Cell::default();
 		let mut it_rows = self.buff.iter_mut();
 		for row in it_rows {
@@ -263,6 +270,10 @@ impl Screen {
 				Cell::volatile_copy(column, default_cell);
 			}
 		}
+        self.cursor.row = 0;
+        self.cursor.column = 0;
+        self.history.clear();
+        self.buff[self.cursor.row][self.cursor.column].1 = Color::Black_on_White;
 	}
 
 	fn shift_upward(&mut self) -> () {
