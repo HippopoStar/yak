@@ -40,6 +40,75 @@ fn panic(info: &core::panic::PanicInfo) -> ! {
 // 	}
 // }
 
+use core::arch::asm;
+
+#[repr(C, packed)]
+#[derive(Debug, Clone, Copy)]
+struct DescriptorTablePointer {
+    limit: u16,
+    base: u64,
+}
+
+#[repr(C, packed)]
+#[derive(Debug, Clone, Copy)]
+struct SegmentDescriptor {
+    limit_low: u16,
+    base_low: u16,
+    base_mid: u8,
+    access: u8,
+    granularity: u8,
+    base_high: u8,
+}
+
+impl SegmentDescriptor {
+    fn base(&self) -> u32 {
+        (self.base_low as u32)
+            | ((self.base_mid as u32) << 16)
+            | ((self.base_high as u32) << 24)
+    }
+
+    fn limit(&self) -> u32 {
+        (self.limit_low as u32) | (((self.granularity & 0x0F) as u32) << 16)
+    }
+
+    fn granularity(&self) -> u8 {
+        (self.granularity >> 4) & 0x0F
+    }
+}
+
+/// Dump the current GDT
+// fait avec chatgpt pour testing purposes
+pub fn dump_gdt() {
+    let mut gdtr = DescriptorTablePointer { limit: 0, base: 0 };
+
+    unsafe {
+        asm!(
+            "sgdt [{}]",
+            in(reg) &mut gdtr,
+            options(nostack, preserves_flags)
+        );
+    }
+
+    // GDT size = (limit + 1) bytes
+    let gdt_size = (gdtr.limit as usize) + 1;
+    let num_entries = gdt_size / core::mem::size_of::<SegmentDescriptor>();
+
+    let gdt_ptr = gdtr.base as *const SegmentDescriptor;
+	vga::_VGA.set_display(7);
+    for i in 0..num_entries {
+        let desc = unsafe { *gdt_ptr.add(i) };
+	    vga_println!(
+            "GDT[{}]: base=0x{:08X}, limit=0x{:X}, access=0x{:02X}, gran=0x{:02X}",
+            i,
+            desc.base(),
+            desc.limit(),
+            desc.access,
+            desc.granularity
+        );
+    }
+}
+
+
 fn init() {
 	interrupts::init_idt();
 	unsafe { interrupts::_PICS.lock().initialize() };
@@ -96,14 +165,24 @@ pub struct ElfSectionHeader {
     sh_entsize: u32,   // Size of entries if section holds a table
 }
 
+const MULTIBOOT_TAG_TYPE_END:u32 = 0;
+const MULTIBOOT_TAG_TYPE_CMDLINE:u32 = 1;
+const MULTIBOOT_TAG_TYPE_BOOT_LOADER_NAME:u32 = 2;
+const MULTIBOOT_TAG_TYPE_MMAP:u32 = 6;
+const MULTIBOOT_TAG_TYPE_ELF_SECTIONS:u32 = 9;
+
+const SHT_STRTAB:u32 = 3;
+
 #[derive(Default)]
 pub struct BootInfo {
     mmapInfo :MmapInfo,
     elfSections :ElfSections,
 }
 
+use core::slice;
+
 pub fn parse_bootinfo(bootinfo_addr :u32, magic: u32) {
-    if magic != 0x36d76289 {
+    if magic != 0x36d76289 { // multiboot magic number`
         panic!("\nmagic number is not 0x36d76289: {:#x}", magic);
     }
 
@@ -114,7 +193,12 @@ pub fn parse_bootinfo(bootinfo_addr :u32, magic: u32) {
 
 	vga_println!("bootinfo size {}", bootinfoHeader.total_size).unwrap();
 	vga_println!("tagHeader type {} tagHeader size {}", tagHeader.tag_type, tagHeader.tag_size).unwrap();
-    while tagHeader.tag_type != 0 && tagHeader.tag_size != 8 {
+    while tagHeader.tag_type != MULTIBOOT_TAG_TYPE_END && tagHeader.tag_size != 8 {
+        if tagHeader.tag_type == MULTIBOOT_TAG_TYPE_BOOT_LOADER_NAME {
+            let string_addr:usize = tagHeaderAddress as usize + core::mem::size_of::<TagHeader>();
+            let slice: &[u8] = unsafe { slice::from_raw_parts((string_addr as *const u8), (tagHeader.tag_size - 8) as usize)};
+            vga_println!("{}", unsafe {str::from_utf8_unchecked(&slice)});
+        }
         if tagHeader.tag_type == 6 { // memory map
             bootInfo.mmapInfo = unsafe {*(tagHeaderAddress as *const MmapInfo)};
             vga_println!("mmap type (should be 6): {}", bootInfo.mmapInfo.tag_type).unwrap();
@@ -151,9 +235,22 @@ pub fn parse_bootinfo(bootinfo_addr :u32, magic: u32) {
                 }
                 let section = unsafe {& (*(section_address as *const ElfSectionHeader))};
                 if index < 7 {
-                vga_println!("section {}  sh_name: {} sh_type {} sh_flags {:#b}", index, section.sh_name, section.sh_type, section.sh_flags).unwrap();
-                vga_println!("  sh_addr: {:#x} sh_offset: {} sh_size {} sh_link {}", section.sh_addr, section.sh_offset, section.sh_size, section.sh_link).unwrap();
-                vga_println!("  sh_info: {} sh_addralign {} sh_entsize {}", section.sh_info, section.sh_addralign, section.sh_entsize).unwrap();
+                    vga_println!("section {}  sh_name: {} sh_type {} sh_flags {:#b}", index, section.sh_name, section.sh_type, section.sh_flags).unwrap();
+                    vga_println!("  sh_addr: {:#x} sh_offset: {} sh_size {} sh_link {}", section.sh_addr, section.sh_offset, section.sh_size, section.sh_link).unwrap();
+                    vga_println!("  sh_info: {} sh_addralign {} sh_entsize {}", section.sh_info, section.sh_addralign, section.sh_entsize).unwrap();
+                }
+                if bootInfo.elfSections.shndx != 0 && index == bootInfo.elfSections.shndx {
+                    if section.sh_type != SHT_STRTAB {
+                        vga_println!("Corrupted bootInfo").unwrap();
+                        break;
+                    }
+                    vga_println!("section {}  sh_name: {} sh_type {} sh_flags {:#b}", index, section.sh_name, section.sh_type, section.sh_flags).unwrap();
+                    vga_println!("  sh_addr: {:#x} sh_offset: {} sh_size {} sh_link {}", section.sh_addr, section.sh_offset, section.sh_size, section.sh_link).unwrap();
+                    vga_println!("  sh_info: {} sh_addralign {} sh_entsize {}", section.sh_info, section.sh_addralign, section.sh_entsize).unwrap();
+                    let string_addr:usize = section.sh_addr as usize;
+                    let slice: &[u8] = unsafe { slice::from_raw_parts((string_addr as *const u8), (section.sh_size as usize))};
+                    vga_println!("{}", unsafe {str::from_utf8_unchecked(&slice)});
+
                 }
             }
         }
@@ -205,6 +302,7 @@ pub extern "C" fn rust_main(n: u32, bootinfo_addr: u32, magic: u32) {
 
 	// print_rainbow_42(7);
 
+    dump_gdt();
 	vga_print!("$> ").unwrap();
 	vga_print!("\nThe END").unwrap();
 

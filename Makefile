@@ -72,7 +72,7 @@ re: fclean all
 
 run: $(NAME)
 	# Quit qemu: Alt+2, then type "q" and press Enter
-	$(QEMU_BIN) -display curses -cdrom $<
+	$(QEMU_BIN) -display curses -m 4G -cdrom $<
 
 .PHONY: all clean fclean re run
 
