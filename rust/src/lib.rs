@@ -132,20 +132,20 @@ pub fn init_gdt() {
     unsafe{
         core::ptr::copy(gdt.as_ptr(), dest_ptr, 7);
         asm!("lgdt [{}]",
-             "push 0x8",
-             "lea {tmp}, [2f]",
-             "push {tmp}",
-             "retf",
+             "push 0x8", // push new code segment_descriptor offset on the stack
+             "lea {tmp}, [2f]", // get the address of label 2: (2f == label 2 + look fowrard)
+             "push {tmp}", // put that address on the stack
+             "retf", // pops the 2: address value into EIP and kernel code segment descriptor offset (0x8) in CS register which makes it reload its code cache
              "2:",
-             "mov ds, ax",
+             "mov ds, ax", // replace all registers address with the address of our data segment
              "mov es, ax",
              "mov fs, ax",
              "mov gs, ax",
-             "mov ss, bx",
+             "mov ss, bx", // replace the stack register by the address of our stack segment
              in(reg) &gdtr,
              tmp = out(reg) _,
              in("ax") 0x10u16,
-             in("bx") 0x10u16,
+             in("bx") 0x18u16,
              options(readonly, nostack, preserves_flags)
              );
     }
