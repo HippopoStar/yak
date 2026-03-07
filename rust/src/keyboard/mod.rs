@@ -1,6 +1,6 @@
 
 use crate::{vga_print, vga_input};
-use crate::arch::x86::instructions::port::Port;
+use crate::arch::x86::instructions::{interrupts, port::Port};
 use core::sync::atomic::{AtomicBool, Ordering};
 use core::fmt;
 
@@ -22,6 +22,42 @@ impl fmt::Display for Key {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", self.character as char)
     }
+}
+use core::arch::asm;
+
+pub fn shutdown() {
+    let mut port = Port::new(0x604);
+
+    unsafe {
+        asm!("sti", options(preserves_flags, nostack));
+        port.write(0x2000 as u16);
+    };
+}
+
+pub fn reboot() {
+    let mut kbinterface_port: Port<u16> = Port::new(0x64);
+    let mut kbio_port: Port<u16> = Port::new(0x60);
+    let mut tmp:u16 = 0x2;
+
+    interrupts::without_interrupts(|| {
+        while tmp & 0x2 != 0 {
+            unsafe { tmp = kbinterface_port.read() };
+            if tmp & 1 == 1 {
+                unsafe { tmp |= kbio_port.read() };
+            }
+        }
+        unsafe { kbinterface_port.write(0xFE) };
+    });
+}
+
+pub fn clear() {
+    interrupts::without_interrupts(|| {
+        crate::vga::_VGA.clear_display();
+    });
+}
+
+pub fn dump_kernel_stack() {
+
 }
 
 impl Keyboard {
@@ -131,7 +167,19 @@ impl Keyboard {
         //
         if self.ctrl.load(Ordering::Relaxed) == true {
                 if self.shift.load(Ordering::Relaxed) == false {
-                    if self.shift.load(Ordering::Relaxed) == false && scancode == 25 {
+                    if self.shift.load(Ordering::Relaxed) == false && _real_scancode == 0x10 { // q
+                        clear();
+                    }
+                    else if self.shift.load(Ordering::Relaxed) == false && _real_scancode == 0x11 { // w
+                        reboot();
+                    }
+                    else if self.shift.load(Ordering::Relaxed) == false && _real_scancode == 0x12 { // e
+                        shutdown();
+                    }
+                    else if self.shift.load(Ordering::Relaxed) == false && _real_scancode == 0x13 { // r
+                        dump_kernel_stack();
+                    }
+                    else if self.shift.load(Ordering::Relaxed) == false && scancode == 25 {
                         crate::vga::print_rainbow_42();
                     }
                 }

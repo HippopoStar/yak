@@ -137,6 +137,15 @@ impl<const N: usize> History<N> {
 		self.length - self.pivot
 	}
 
+    fn clear(&mut self) -> () {
+        self.length = 0;
+        self.head = 0;
+        self.pivot = 0;
+        for row in self.circular_buffer.iter_mut() {
+            row.initialize();
+        }
+    }
+
 	// This method swaps the content of 'upper_row' with the content of the newest downward row, if any
 	fn push_upper_row(&mut self, upper_row: &mut Row<{Screen::WIDTH}>) -> () {
 		if 0 < N {
@@ -272,11 +281,16 @@ impl Screen {
 		});
 	}
 
-	fn clear(&mut self) -> () {
+	pub fn clear(&mut self) -> () {
+		let default_cell = &Cell::default();
 		let it_rows = self.buff.iter_mut();
 		for row in it_rows {
 			row.initialize();
 		}
+        self.cursor.row = 0;
+        self.cursor.column = 0;
+        self.history.clear();
+        self.buff[self.cursor.row][self.cursor.column].1 = Color::Black_on_White;
 	}
 
 	fn shift_upward(&mut self) -> () {

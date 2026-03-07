@@ -175,6 +175,12 @@ impl VGA {
 		self.display.load(core::sync::atomic::Ordering::Relaxed)
 	}
 
+    pub fn clear_display(&self) -> () {
+        if let Some(mut screen) = self.get_screen(self.get_current_index()) {
+            screen.clear();
+        }
+    }
+
 	pub fn set_display(&self, index: usize) -> () {
 		if index < Self::LENGTH {
 			let old_index = self.display.swap(index, core::sync::atomic::Ordering::Relaxed);
