@@ -22,24 +22,6 @@ fn panic(info: &core::panic::PanicInfo) -> ! {
 	hlt_loop();
 }
 
-// fn print_rainbow_42(screen_index: usize) -> () {
-// 	let str_42 = "
-//         :::      ::::::::
-//       :+:      :+:    :+:
-//     +:+ +:+         +:+
-//   +#+  +:+       +#+
-// +#+#+#+#+#+   +#+
-//      #+#    #+#
-//     ###   ########.fr";
-
-// 	let mut screen: spin::MutexGuard<vga::screen::Screen> = vga::_VGA.get_screen(screen_index);
-// 	screen.set_color(vga::Color::Black);
-// 	for line in str_42.lines() {
-// 		writeln!(screen, "{}", line).unwrap();
-// 		screen.set_next_rainbow_color();
-// 	}
-// }
-
 use core::arch::asm;
 
 #[repr(C, packed)]
@@ -166,7 +148,6 @@ pub extern "C" fn rust_main(n: u32) {
 	dump_gdt();
 	init();
 	dump_gdt();
-	// print_rainbow_42(7);
 	vga_print!("$> ").unwrap();
 	vga_print!("\nThe END").unwrap();
 
