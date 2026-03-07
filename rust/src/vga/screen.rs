@@ -9,7 +9,9 @@ const HISTORY_CAPACITY: usize = 5;
 /// for each row, &self.buff[self.cursor.row][0..self.cursor.column] does not contain any b'\0'
 /// last column of the last row (either in self.buff or in self.history) == b'\0'
 
-// ===== Cell =====
+// ############################################################################
+// #                              CELL                                        #
+// ############################################################################
 
 #[derive(Default, Debug, Copy, Clone, PartialEq, Eq)]
 #[repr(C)]
@@ -26,68 +28,74 @@ impl Cell {
 	}
 }
 
-// ===== Cursor =====
+// ############################################################################
+// #                              CURSOR                                      #
+// ############################################################################
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+#[derive(Default, Debug, Copy, Clone, PartialEq, Eq)]
 struct Cursor {
 	row: usize,
 	column: usize,
 }
 
-// ===== History =====
+// ############################################################################
+// #                              ROW                                         #
+// ############################################################################
 
-fn copy_row(dst: &mut [Cell; Screen::WIDTH], src: &[Cell; Screen::WIDTH]) -> () {
-	for column in 0..Screen::WIDTH {
-		Cell::volatile_copy(&mut dst[column], &src[column]);
+// Fundamental Types -> Type Aliases
+// Structs -> Tuple-Like Structs
+#[derive(Debug, Copy, Clone)]
+#[repr(transparent)]
+struct Row<const W: usize>([Cell; W]);
+
+impl<const W: usize> Row<W> {
+	// https://doc.rust-lang.org/core/primitive.slice.html#method.copy_from_slice
+	// volatile copy? (not needed in the context of History)
+	fn copy_from(&mut self, rhs: &Self) -> () {
+		self.0.copy_from_slice(&rhs.0);
 	}
-}
-
-fn right_shift_row(row: &mut [Cell; Screen::WIDTH], column: usize) {
-	if column < Screen::WIDTH {
-		let last_cell = *(row.last().unwrap());
-		let mut it_columns = row.iter_mut().rev().take(Screen::WIDTH - column).peekable();
-		while let Some(current) = it_columns.next() {
-			if let Some(leftward) = it_columns.peek() {
-				if leftward != &current {
-					Cell::volatile_copy(current, leftward);
-				}
-			}
-			else {
-				Cell::volatile_copy(current, &last_cell);
-			}
+	fn initialize(&mut self) -> () {
+		self.0.fill(Cell::default());
+	}
+	// https://doc.rust-lang.org/core/primitive.slice.html#method.rotate_left
+	fn left_shift(&mut self, column: usize, amplitude: usize) -> () {
+		if column + amplitude < W {
+			self.0[column..].rotate_left(amplitude);
+		}
+	}
+	// https://doc.rust-lang.org/core/primitive.slice.html#method.rotate_right
+	fn right_shift(&mut self, column: usize, amplitude: usize) -> () {
+		if column + amplitude < W {
+			self.0[column..].rotate_right(amplitude);
 		}
 	}
 }
 
-fn left_shift_row(row: &mut [Cell; Screen::WIDTH], column: usize) {
-	if column < Screen::WIDTH {
-		let first_cell = *(row.get(column).unwrap());
-		let mut it_columns = row.iter_mut().skip(column).peekable();
-		while let Some(current) = it_columns.next() {
-			if let Some(rightward) = it_columns.peek() {
-				if rightward != &current {
-					Cell::volatile_copy(current, rightward);
-				}
-			}
-			else {
-				Cell::volatile_copy(current, &first_cell);
-			}
+impl<const W: usize> Default for Row<W> {
+	fn default() -> Self {
+		Self {
+			0: [Cell::default(); W],
 		}
 	}
 }
 
-// // Fundamental Types -> Type Aliases
-// // Structs -> Tuple-Like Structs
-// #[repr(transparent)]
-// struct Row([Cell; Screen::WIDTH]);
+// Operator Overloading -> Index and IndexMut
+impl<const W: usize> core::ops::Index<usize> for Row<W> {
+	type Output = Cell;
+	fn index(&self, idx: usize) -> &Cell {
+		return &self.0[idx]
+	}
+}
 
-// impl Default for Row {
-// 	fn default() -> Self {
-// 		Self {
-// 			0: [Cell::default(); Screen::WIDTH],
-// 		}
-// 	}
-// }
+impl<const W: usize> core::ops::IndexMut<usize> for Row<W> {
+	fn index_mut(&mut self, idx: usize) -> &mut Cell {
+		return &mut self.0[idx]
+	}
+}
+
+// ############################################################################
+// #                              HISTORY                                     #
+// ############################################################################
 
 // https://doc.rust-lang.org/stable/core/ptr/fn.copy_nonoverlapping.html
 // https://doc.rust-lang.org/stable/core/mem/fn.replace.html
@@ -100,15 +108,15 @@ struct History<const N: usize> {
 	head: usize,
 	length: usize,
 	pivot: usize,
-	circular_buffer: [[Cell; Screen::WIDTH]; N],
+	circular_buffer: [Row<{Screen::WIDTH}>; N],
 }
 
-// | oldest up -- (head)
+// | oldest upward -- (head)
 // |
-// | newest up
-// | newest down -- (pivot)
+// | newest upward
+// | newest downward -- (pivot)
 // |
-// | oldest down
+// | oldest downward
 // -- (length)
 
 impl<const N: usize> History<N> {
@@ -117,79 +125,89 @@ impl<const N: usize> History<N> {
 			head: 0,
 			length: 0,
 			pivot: 0,
-			circular_buffer: [[Cell::default(); Screen::WIDTH]; N],
+			circular_buffer: [Row::<{Screen::WIDTH}>::default(); N],
 		}
 	}
 
-	fn get_head_length(&self) -> usize {
+	fn get_upward_length(&self) -> usize {
 		self.pivot
 	}
 
-	fn get_tail_length(&self) -> usize {
+	fn get_downward_length(&self) -> usize {
 		self.length - self.pivot
 	}
 
-	// TODO: does not need 'volatile' copy used by 'copy_row'
-
-	fn push_upper_row(&mut self, upper_row: &[Cell; Screen::WIDTH], lower_row: &mut [Cell; Screen::WIDTH]) -> () {
+	// This method swaps the content of 'upper_row' with the content of the newest downward row, if any
+	fn push_upper_row(&mut self, upper_row: &mut Row<{Screen::WIDTH}>) -> () {
 		if 0 < N {
-			let target_row: &mut [Cell; Screen::WIDTH] = &mut self.circular_buffer[(self.head + self.pivot) % N];
+			let dest_row: &mut Row<{Screen::WIDTH}> = &mut self.circular_buffer[(self.head + self.pivot) % N];
+			core::mem::swap(dest_row, upper_row);
 			if self.pivot < self.length {
-				copy_row(lower_row, target_row);
 				self.pivot += 1;
 			}
 			else if self.length < N {
+				// No need to initialize upper_row (dest_row was already empty)
 				self.length += 1;
 				self.pivot += 1;
 			}
 			else {
+				upper_row.initialize();
 				self.head = (self.head + 1) % N;
 			}
-			copy_row(target_row, upper_row);
 		}
 	}
 
-	fn pop_upper_row(&mut self, upper_row: &mut [Cell; Screen::WIDTH], lower_row: &[Cell; Screen::WIDTH]) -> () {
+	// If there is a upward history
+	fn pop_upper_row(&mut self, lower_row: &mut Row<{Screen::WIDTH}>) -> () {
 		if 0 < self.pivot {
 			self.pivot -=1;
-			let source_row: &mut [Cell; Screen::WIDTH] = &mut self.circular_buffer[(self.head + self.pivot) % N];
-			copy_row(upper_row, source_row);
-			copy_row(source_row, lower_row);
+			let src_row: &mut Row<{Screen::WIDTH}> = &mut self.circular_buffer[(self.head + self.pivot) % N];
+			core::mem::swap(lower_row, src_row);
 		}
 	}
 
+	// The intent of this method is to right shift downward history
+	// to insert the screen latest cell in the event of a writing on Screen
+	// The caller is responsible for ensuring there is enough room in History
 	fn shift_rightward(&mut self, mut above_end_of_line: Cell) {
 		let mut idx = self.pivot;
+		// While the last cell of a row is not '\0',
+		// rotate the underneath row 1 cell to the right and replace
+		// the first cell of that row with the aforementioned cell
 		while b'\0' != above_end_of_line.0 && idx < self.length {
-			right_shift_row(&mut self.circular_buffer[(self.head + idx) % N], 0);
+			self.circular_buffer[(self.head + idx) % N].right_shift(0, 1);
 			above_end_of_line = core::mem::replace(&mut self.circular_buffer[(self.head + idx) % N][0], above_end_of_line);
 			idx += 1;
 		}
 		if b'\0' != above_end_of_line.0 {
+			// If there is still room available in the history,
+			// add a new row with 1 cell
 			if self.length < N {
-				copy_row(&mut self.circular_buffer[(self.head + self.length) % N], &[Cell::default(); Screen::WIDTH]);
+				self.circular_buffer[(self.head + self.length) % N].initialize();
 				above_end_of_line = core::mem::replace(&mut self.circular_buffer[(self.head + self.length) % N][0], above_end_of_line);
 				self.length += 1;
 			}
+			// Otherwise, erase oldest upward history to make room
 			else if 0 < self.pivot {
 				self.pivot -= 1;
-				copy_row(&mut self.circular_buffer[self.head % N], &[Cell::default(); Screen::WIDTH]);
+				self.circular_buffer[self.head % N].initialize();
 				above_end_of_line = core::mem::replace(&mut self.circular_buffer[self.head % N][0], above_end_of_line);
 				self.head = (self.head + 1) % N;
-				// according to the 2 above lines, "above_end_of_line" should now be Cell::default()
 			}
 		}
 	}
 }
 
-// ===== Screen =====
+// ############################################################################
+// #                              SCREEN                                      #
+// ############################################################################
 
 #[derive(Debug)]
 pub(super) struct Screen {
 	cursor: Cursor,
 	color: Color,
 	history: History<HISTORY_CAPACITY>,
-	buff: &'static mut [[Cell; Self::WIDTH]; Self::HEIGHT],
+	buff: &'static mut [Row<{Self::WIDTH}>; Self::HEIGHT],
 	input_mode: bool,
 }
 
@@ -255,47 +273,21 @@ impl Screen {
 	}
 
 	fn clear(&mut self) -> () {
-		let default_cell = &Cell::default();
-		let mut it_rows = self.buff.iter_mut();
+		let it_rows = self.buff.iter_mut();
 		for row in it_rows {
-			let mut it_columns = row.iter_mut();
-			for column in it_columns {
-				Cell::volatile_copy(column, default_cell);
-			}
+			row.initialize();
 		}
 	}
 
 	fn shift_upward(&mut self) -> () {
-	//	if 0 < self.history.get_tail_length() {
-			let lower_row = &mut [Cell::default(); Screen::WIDTH];
-			self.history.push_upper_row(self.buff.first().unwrap(), lower_row);
-
-			let mut it = self.buff.iter_mut().peekable();
-			while let Some(above) = it.next() {
-				if let Some(below) = it.peek() {
-					copy_row(above, below);
-				}
-				else {
-					copy_row(above, lower_row);
-				}
-			}
-	//	}
+		self.history.push_upper_row(&mut self.buff.first_mut().unwrap());
+		self.buff.rotate_left(1);
 	}
 
 	fn shift_downward(&mut self) -> () {
-		if 0 < self.history.get_head_length() {
-			let upper_row = &mut [Cell::default(); Screen::WIDTH];
-			self.history.pop_upper_row(upper_row, self.buff.last().unwrap());
-
-			let mut it = self.buff.iter_mut().rev().peekable();
-			while let Some(above) = it.next() {
-				if let Some(below) = it.peek() {
-					copy_row(above, below);
-				}
-				else {
-					copy_row(above, upper_row);
-				}
-			}
+		if 0 < self.history.get_upward_length() {
+			self.history.pop_upper_row(&mut self.buff.last_mut().unwrap());
+			self.buff.rotate_right(1);
 		}
 	}
 
@@ -324,13 +316,13 @@ impl Screen {
 	fn shift_leftward(&mut self, mut row: usize, column: usize) -> () {
 		// TODO: fix invariants
 		let mut current_end_of_line = Cell::new_from(&self.buff[row][Self::WIDTH - 1]);
-		left_shift_row(&mut self.buff[row], column);
+		self.buff[row].left_shift(column, 1);
 		while b'\0' != current_end_of_line.0 && row + 1 < Self::HEIGHT {
 			let below_start_of_line = Cell::new_from(&self.buff[row + 1][0]);
 			Cell::volatile_copy(&mut self.buff[row][Self::WIDTH - 1], &below_start_of_line);
 			row += 1;
 			Cell::volatile_copy(&mut current_end_of_line, &self.buff[row][Self::WIDTH - 1]);
-			left_shift_row(&mut self.buff[row], column);
+			self.buff[row].left_shift(column, 1);
 		}
 		if b'\0' == current_end_of_line.0 {
 			Cell::volatile_copy(&mut self.buff[row][Self::WIDTH - 1], &Cell::default());
@@ -367,16 +359,16 @@ impl Screen {
 	// .rev().take(Self::HEIGHT - row).peekable()
 	// !(b'\0' == leftward.0)
 	fn shift_rightward(&mut self, mut row: usize, column: usize) -> () {
-		right_shift_row(&mut self.buff[row], column);
+		self.buff[row].right_shift(column, 1);
 		let mut above_end_of_line = Cell::new_from(&self.buff[row][column]);
 		// Cell::volatile_copy(&mut self.buff[row][column], Cell::default());
 		while b'\0' != above_end_of_line.0 && row + 1 < Self::HEIGHT {
 			row += 1;
-			right_shift_row(&mut self.buff[row], 0);
+			self.buff[row].right_shift(0, 1);
 			above_end_of_line = core::mem::replace(&mut self.buff[row][0], above_end_of_line);
 		}
 		if b'\0' != above_end_of_line.0 {
-			if 0 < HISTORY_CAPACITY - self.history.get_tail_length() {
+			if 0 < HISTORY_CAPACITY - self.history.get_downward_length() {
 				self.history.shift_rightward(above_end_of_line);
 			}
 			else {
@@ -411,7 +403,7 @@ impl Screen {
 		if 0 < self.cursor.row {
 			self.cursor.row -= 1;
 		}
-		else if 0 < self.history.get_head_length() {
+		else if 0 < self.history.get_upward_length() {
 			self.shift_downward();
 		}
 		self.left_align_cursor();
@@ -421,7 +413,7 @@ impl Screen {
 		if self.cursor.row + 1 < Self::HEIGHT {
 			self.cursor.row += 1;
 		}
-		else if 0 < self.history.get_tail_length() {
+		else if 0 < self.history.get_downward_length() {
 			self.shift_upward();
 		}
 		self.left_align_cursor();
@@ -430,7 +422,7 @@ impl Screen {
 	fn move_cursor_right(&mut self) -> () {
 		if self.cursor.column + 1 < Self::WIDTH {
 			if b'\0' == self.buff[self.cursor.row][self.cursor.column].0 {
-				if self.cursor.row + 1 < Self::HEIGHT || 0 < self.history.get_tail_length() {
+				if self.cursor.row + 1 < Self::HEIGHT || 0 < self.history.get_downward_length() {
 					self.cursor.column = 0;
 					self.move_cursor_down();
 				}
@@ -443,7 +435,7 @@ impl Screen {
 			self.cursor.row += 1;
 			self.cursor.column = 0;
 		}
-		else if 0 < self.history.get_tail_length() {
+		else if 0 < self.history.get_downward_length() {
 			self.shift_upward();
 		}
 		self.left_align_cursor();
@@ -457,7 +449,7 @@ impl Screen {
 			self.cursor.row -= 1;
 			self.cursor.column = Self::WIDTH - 1;
 		}
-		else if 0 < self.history.get_head_length() {
+		else if 0 < self.history.get_upward_length() {
 			self.shift_downward();
 			self.cursor.column = Self::WIDTH - 1;
 		}
@@ -504,7 +496,7 @@ impl core::fmt::Write for Screen {
 				}
 				else if b'\x1e' == c {
 					// scroll up
-					if 0 < self.history.get_head_length() {
+					if 0 < self.history.get_upward_length() {
 						self.shift_downward();
 						if self.cursor.row + 1 < Self::HEIGHT {
 							self.cursor.row += 1;
@@ -514,7 +506,7 @@ impl core::fmt::Write for Screen {
 				}
 				else if b'\x1f' == c {
 					// scroll down
-					if 0 < self.history.get_tail_length() {
+					if 0 < self.history.get_downward_length() {
 						self.shift_upward();
 						if 0 < self.cursor.row {
 							self.cursor.row -= 1;
