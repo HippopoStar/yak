@@ -83,13 +83,13 @@ impl<const W: usize> Default for Row<W> {
 impl<const W: usize> core::ops::Index<usize> for Row<W> {
 	type Output = Cell;
 	fn index(&self, idx: usize) -> &Cell {
-		return &self.0[idx]
+		&self.0[idx]
 	}
 }
 
 impl<const W: usize> core::ops::IndexMut<usize> for Row<W> {
 	fn index_mut(&mut self, idx: usize) -> &mut Cell {
-		return &mut self.0[idx]
+		&mut self.0[idx]
 	}
 }
 
@@ -214,9 +214,11 @@ impl<const N: usize> History<N> {
 #[derive(Debug)]
 pub(super) struct Screen {
 	cursor: Cursor,
+	prompt: Cursor,
 	color: Color,
 	history: History<HISTORY_CAPACITY>,
 	buff: &'static mut [Row<{Self::WIDTH}>; Self::HEIGHT],
+	raw_buff: &'static [u8; Self::SIZE],
 	input_mode: bool,
 }
 
@@ -232,12 +234,17 @@ impl Screen {
 				row: 0,
 				column: 0,
 			},
+			prompt: Cursor {
+				row: 0,
+				column: 0,
+			},
 			color: Color::default(),
 			history: History::new(),
 			buff: unsafe { &mut (*(addr as *mut _)) },
+			raw_buff: unsafe { *(addr as *const _) },
 			input_mode: false,
 		};
-		instance.clear();
+		instance.initialize();
 		instance
 	}
 
@@ -245,8 +252,15 @@ impl Screen {
 		self.color = color;
 	}
 
-	pub fn set_input_mode(&mut self, input_mode: bool) {
+	pub fn set_input_mode(&mut self, input_mode: bool) -> () {
+		if !self.input_mode && input_mode {
+			self.prompt = self.cursor;
+		}
 		self.input_mode = input_mode;
+	}
+
+	pub fn get_input_mode(&self) -> bool {
+		self.input_mode
 	}
 
 	pub fn set_next_rainbow_color(&mut self) -> () {
@@ -281,15 +295,22 @@ impl Screen {
 		});
 	}
 
-	pub fn clear(&mut self) -> () {
-		let default_cell = &Cell::default();
+	fn initialize(&mut self) -> () {
 		let it_rows = self.buff.iter_mut();
 		for row in it_rows {
 			row.initialize();
 		}
-        self.cursor.row = 0;
-        self.cursor.column = 0;
-        self.history.clear();
+	}
+
+	pub fn clear(&mut self) -> () {
+		for _ in 0..Self::HEIGHT {
+			self.shift_upward();
+		}
+		self.history.clear(); // ?
+		self.cursor = Cursor {
+			row: 0,
+			column: 0,
+		};
         self.buff[self.cursor.row][self.cursor.column].1 = Color::Black_on_White;
 	}
 
@@ -469,9 +490,18 @@ impl Screen {
 		}
 		self.left_align_cursor();
 	}
-}
 
 // TODO: 2 modes, default & insert (replacing characters in place)
+	pub fn get_input_slice(&self) -> &[u8] {
+		// Go downward firsthand?
+		let start: usize = ((self.prompt.row * Self::WIDTH) + self.prompt.column) * core::mem::size_of::<Cell>();
+		let mut length: usize = 0;
+		while (start + length < Self::SIZE) && (b'\0' != self.raw_buff[start + length]) {
+			length += 2;
+		}
+		&self.raw_buff[start..(start + length)]
+	}
+}
 
 impl core::fmt::Write for Screen {
 	fn write_str(&mut self, s: &str) -> core::fmt::Result {

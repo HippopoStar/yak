@@ -3,6 +3,7 @@ use crate::{vga_print, vga_input};
 use crate::arch::x86::instructions::{interrupts, port::Port};
 use core::sync::atomic::{AtomicBool, Ordering};
 use core::fmt;
+use core::arch::asm;
 
 pub static _KB: Keyboard = Keyboard::new();
 
@@ -23,7 +24,6 @@ impl fmt::Display for Key {
         write!(f, "{}", self.character as char)
     }
 }
-use core::arch::asm;
 
 pub fn shutdown() {
     let mut port = Port::new(0x604);
@@ -56,8 +56,89 @@ pub fn clear() {
     });
 }
 
-pub fn dump_kernel_stack() {
+fn get_printable_char_from_u32(n: u32) -> char {
+    let mut printable_char = '.';
+    if let Some(c) = char::from_u32(n) {
+        if c.is_ascii_graphic() || ' ' == c {
+            printable_char = c;
+        }
+    }
+    printable_char
+}
 
+pub fn dump_kernel_stack() -> () {
+    let s: [u8; 11] = [b'H', b'e', b'y', b' ', b't', b'h', b'e', b'r', b'e', b'!', b'\0'];
+    let stack_frame: (u32, u32) = crate::arch::x86::registers::get_stack_frame();
+    let ptr: *const u8 = stack_frame.0 as *const u8;
+    let mut offset: usize = 0;
+    while stack_frame.0 as usize + offset + 15 < stack_frame.1 as usize {
+        crate::vga_println!(
+            "{:08x}  {:02x} {:02x} {:02x} {:02x} {:02x} {:02x} {:02x} {:02x}  {:02x} {:02x} {:02x} {:02x} {:02x} {:02x} {:02x} {:02x} |{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}|",
+            ptr as usize + offset,
+            unsafe { *ptr.add(offset + 0) },
+            unsafe { *ptr.add(offset + 1) },
+            unsafe { *ptr.add(offset + 2) },
+            unsafe { *ptr.add(offset + 3) },
+            unsafe { *ptr.add(offset + 4) },
+            unsafe { *ptr.add(offset + 5) },
+            unsafe { *ptr.add(offset + 6) },
+            unsafe { *ptr.add(offset + 7) },
+            unsafe { *ptr.add(offset + 8) },
+            unsafe { *ptr.add(offset + 9) },
+            unsafe { *ptr.add(offset + 10) },
+            unsafe { *ptr.add(offset + 11) },
+            unsafe { *ptr.add(offset + 12) },
+            unsafe { *ptr.add(offset + 13) },
+            unsafe { *ptr.add(offset + 14) },
+            unsafe { *ptr.add(offset + 15) },
+            get_printable_char_from_u32(unsafe { *ptr.add(offset + 0) as u32 }),
+            get_printable_char_from_u32(unsafe { *ptr.add(offset + 1) as u32 }),
+            get_printable_char_from_u32(unsafe { *ptr.add(offset + 2) as u32 }),
+            get_printable_char_from_u32(unsafe { *ptr.add(offset + 3) as u32 }),
+            get_printable_char_from_u32(unsafe { *ptr.add(offset + 4) as u32 }),
+            get_printable_char_from_u32(unsafe { *ptr.add(offset + 5) as u32 }),
+            get_printable_char_from_u32(unsafe { *ptr.add(offset + 6) as u32 }),
+            get_printable_char_from_u32(unsafe { *ptr.add(offset + 7) as u32 }),
+            get_printable_char_from_u32(unsafe { *ptr.add(offset + 8) as u32 }),
+            get_printable_char_from_u32(unsafe { *ptr.add(offset + 9) as u32 }),
+            get_printable_char_from_u32(unsafe { *ptr.add(offset + 10) as u32 }),
+            get_printable_char_from_u32(unsafe { *ptr.add(offset + 11) as u32 }),
+            get_printable_char_from_u32(unsafe { *ptr.add(offset + 12) as u32 }),
+            get_printable_char_from_u32(unsafe { *ptr.add(offset + 13) as u32 }),
+            get_printable_char_from_u32(unsafe { *ptr.add(offset + 14) as u32 }),
+            get_printable_char_from_u32(unsafe { *ptr.add(offset + 15) as u32 }),
+        );
+        offset += 16;
+    }
+    let mut i: usize = 0;
+    if stack_frame.0 as usize + offset < stack_frame.1 as usize {
+        crate::vga_print!("{:08x} ", ptr as usize + offset);
+        i = 0;
+        while stack_frame.0 as usize + offset + i < stack_frame.1 as usize {
+            crate::vga_print!(" {:02x}", unsafe { *ptr.add(offset + i) });
+            if i % 8 == 7 {
+                vga_print!(" ");
+            }
+            i += 1;
+        }
+        while i < 16 {
+            crate::vga_print!("   ");
+            if i % 8 == 7 {
+                vga_print!(" ");
+            }
+            i += 1;
+        }
+        crate::vga_print!("|");
+        i = 0;
+        while stack_frame.0 as usize + offset + i < stack_frame.1 as usize {
+            crate::vga_print!("{}", get_printable_char_from_u32(unsafe { *ptr.add(offset + 0) as u32 }));
+            i += 1;
+        }
+        crate::vga_println!("|");
+    }
+    crate::vga_println!("{:08x}", ptr as usize + offset + i);
+    crate::vga_println!("esp: {:#010x}, bsp:{:#010x}, size: {}", stack_frame.0, stack_frame.1, stack_frame.1 - stack_frame.0).unwrap();
+    crate::vga_println!("{}", str::from_utf8(&s).unwrap());
 }
 
 impl Keyboard {
