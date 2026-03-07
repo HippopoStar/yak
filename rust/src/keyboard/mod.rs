@@ -25,7 +25,7 @@ impl fmt::Display for Key {
 }
 use core::arch::asm;
 
-pub fn halt() {
+pub fn shutdown() {
     let mut port = Port::new(0x604);
 
     unsafe {
@@ -167,7 +167,28 @@ impl Keyboard {
         let _is_pressed: bool = (scancode & 0x80) == 0;
 
         //vga_print!("SCANCODE {:#x} ", scancode).unwrap();
-        if self.extended.load(Ordering::Relaxed) == false {
+        //
+        if self.ctrl.load(Ordering::Relaxed) == true {
+                if self.shift.load(Ordering::Relaxed) == false {
+                    if self.shift.load(Ordering::Relaxed) == false && _real_scancode == 0x10 { // q
+                        clear();
+                    }
+                    else if self.shift.load(Ordering::Relaxed) == false && _real_scancode == 0x11 { // w
+                        reboot();
+                    }
+                    else if self.shift.load(Ordering::Relaxed) == false && _real_scancode == 0x12 { // e
+                        shutdown();
+                    }
+                    else if self.shift.load(Ordering::Relaxed) == false && scancode == 25 {
+                        crate::vga::print_rainbow_42();
+                    }
+                }
+                else {
+                    self.shift.store(false, Ordering::Relaxed);
+                }
+                self.ctrl.store(false, Ordering::Relaxed);
+        }
+        else if self.extended.load(Ordering::Relaxed) == false {
             if scancode == 0xE0 {
                 self.extended.store(true, Ordering::Relaxed);
                 //vga_print!("EXTENDED-BYTE ").unwrap();
@@ -179,27 +200,14 @@ impl Keyboard {
                 self.ctrl.store(true, Ordering::Relaxed);
             }
             else if _is_pressed == true {
-                if _real_scancode == 0x44 { // F10
-                    clear();
-                }
-                else if _real_scancode == 0x57 { // F11
-                    reboot();
-                }
-                else if _real_scancode == 0x58 { // F12
-                    halt();
-                }
-                else if scancode > 84 {
+                if scancode > 84 {
                     vga_print!("UNHANDLED SCANCODE {:#x} !", scancode).unwrap();
                 }
                 else if scancode == 14 {
                     vga_input!("\x08").unwrap(); // BackSpace (ASCII 0x08)
                 }
                 else {
-                    if self.ctrl.load(Ordering::Relaxed) == true && self.shift.load(Ordering::Relaxed) == false && scancode == 25 {
-                        crate::vga::print_rainbow_42();
-                        self.ctrl.store(false, Ordering::Relaxed);
-                    }
-                    else if 59 <= scancode && scancode <= 66 {
+                    if 59 <= scancode && scancode <= 66 { // F1 to F8
                         let value = scancode - 59;
                         crate::vga::_VGA.set_display(value as usize);
                     }
