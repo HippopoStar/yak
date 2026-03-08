@@ -114,8 +114,10 @@ pub enum Command {
 
 fn cmp(slice: &[u8], command: &[u8]) -> bool {
 	let mut i: usize = 0;
-	while i < command.len() && 2 * i < slice.len() && command[i] == slice[2 * i] {
-		i += 1;
+	if slice.len() == command.len() * 2 {
+		while i < command.len() && 2 * i < slice.len() && command[i] == slice[2 * i] {
+			i += 1;
+		}
 	}
 	i == command.len()
 }
