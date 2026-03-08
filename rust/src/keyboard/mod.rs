@@ -287,6 +287,17 @@ impl Keyboard {
                 else if scancode == 14 {
                     vga_input!("\x08").unwrap(); // BackSpace (ASCII 0x08)
                 }
+                else if scancode == 28 {
+                    let cmd: crate::vga::Command = crate::vga::get_command();
+                    match cmd {
+                        crate::vga::Command::Print_rainbow_42 => crate::vga::print_rainbow_42(),
+                        crate::vga::Command::Dump_kernel_stack => dump_kernel_stack(),
+                        crate::vga::Command::Clear => clear(),
+                        crate::vga::Command::Reboot => reboot(),
+                        crate::vga::Command::Shutdown => shutdown(),
+                        _ => crate::vga_println!("").unwrap(),
+                    }
+                }
                 else {
                     if 59 <= scancode && scancode <= 66 { // F1 to F8
                         let value = scancode - 59;

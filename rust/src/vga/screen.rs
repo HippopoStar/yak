@@ -241,7 +241,7 @@ impl Screen {
 			color: Color::default(),
 			history: History::new(),
 			buff: unsafe { &mut (*(addr as *mut _)) },
-			raw_buff: unsafe { *(addr as *const _) },
+			raw_buff: unsafe { & (*(addr as *const _)) },
 			input_mode: false,
 		};
 		instance.initialize();
@@ -492,14 +492,16 @@ impl Screen {
 	}
 
 // TODO: 2 modes, default & insert (replacing characters in place)
-	pub fn get_input_slice(&self) -> &[u8] {
-		// Go downward firsthand?
-		let start: usize = ((self.prompt.row * Self::WIDTH) + self.prompt.column) * core::mem::size_of::<Cell>();
-		let mut length: usize = 0;
-		while (start + length < Self::SIZE) && (b'\0' != self.raw_buff[start + length]) {
-			length += 2;
+	pub fn get_input_slice(&self) -> Option<&[u8]> {
+		let mut opt: Option<&[u8]> = None;
+		if 0 == self.cursor.row {
+			let mut length: usize = 0;
+			while (length < Self::WIDTH) && (b'\0' != self.buff[0][length].0) {
+				length += 1;
+			}
+			opt = Some(&self.raw_buff[0..(length * core::mem::size_of::<Cell>())]);
 		}
-		&self.raw_buff[start..(start + length)]
+		opt
 	}
 }
 

@@ -88,12 +88,62 @@ pub fn _input(args: core::fmt::Arguments) -> core::fmt::Result {
 	result
 }
 
+// Printing to a screen requires locking a mutex, that is why
+// it is needed to execute instructions inside a 'without_interrupts' closure
+// (so it avoids deadlocks)
 pub fn print_rainbow_42() -> () {
 	interrupts::without_interrupts(|| {
 		if let Some(mut screen) = crate::vga::_VGA.get_screen(crate::vga::_VGA.get_current_index()) {
 			screen.print_rainbow_42();
 		}
 	});
+}
+
+#[allow(dead_code)]
+#[derive(Default, Debug, Copy, Clone, PartialEq, Eq)]
+#[repr(u8)]
+pub enum Command {
+	#[default]
+	None = 0,
+	Print_rainbow_42 = 1,
+	Dump_kernel_stack = 2,
+	Clear = 3,
+	Reboot = 4,
+	Shutdown = 5,
+}
+
+fn cmp(slice: &[u8], command: &[u8]) -> bool {
+	let mut i: usize = 0;
+	while i < command.len() && 2 * i < slice.len() && command[i] == slice[2 * i] {
+		i += 1;
+	}
+	i == command.len()
+}
+
+pub fn get_command() -> Command {
+	let mut cmd: Command = Command::None;
+	interrupts::without_interrupts(|| {
+		if let Some(screen) = crate::vga::_VGA.get_screen(crate::vga::_VGA.get_current_index()) {
+			if let Some(slice) = screen.get_input_slice() {
+				if cmp(slice, b"print_rainbow_42") {
+					cmd = Command::Print_rainbow_42;
+				}
+				else if cmp(slice, b"dump_kernel_stack") {
+					cmd = Command::Dump_kernel_stack;
+				}
+				else if cmp(slice, b"clear") {
+					cmd = Command::Clear;
+				}
+				else if cmp(slice, b"reboot") {
+					cmd = Command::Reboot;
+				}
+				else if cmp(slice, b"shutdown") {
+					cmd = Command::Shutdown;
+				}
+			}
+		}
+	});
+	cmd
 }
 
 // ===== Color =====
