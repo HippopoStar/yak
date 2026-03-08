@@ -245,22 +245,21 @@ impl Keyboard {
         let _is_pressed: bool = (scancode & 0x80) == 0;
 
         //vga_print!("SCANCODE {:#x} ", scancode).unwrap();
-        //
         if self.ctrl.load(Ordering::Relaxed) == true {
                 if self.shift.load(Ordering::Relaxed) == false {
-                    if self.shift.load(Ordering::Relaxed) == false && _real_scancode == 0x10 { // q
+                    if _real_scancode == 0x10 { // q
                         clear();
                     }
-                    else if self.shift.load(Ordering::Relaxed) == false && _real_scancode == 0x11 { // w
+                    else if _real_scancode == 0x11 { // w
                         reboot();
                     }
-                    else if self.shift.load(Ordering::Relaxed) == false && _real_scancode == 0x12 { // e
+                    else if _real_scancode == 0x12 { // e
                         shutdown();
                     }
-                    else if self.shift.load(Ordering::Relaxed) == false && _real_scancode == 0x13 { // r
+                    else if _real_scancode == 0x13 { // r
                         dump_kernel_stack();
                     }
-                    else if self.shift.load(Ordering::Relaxed) == false && scancode == 25 {
+                    else if scancode == 0x14 { //t
                         crate::vga::print_rainbow_42();
                     }
                 }
